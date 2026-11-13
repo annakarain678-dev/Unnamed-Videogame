@@ -76,9 +76,11 @@ const FLIGHT_AIM_OFFSET := 0.035
 const DIVE_AIM_EXTRA := 0.5
 ## How strongly heading down speeds you up (and heading up slows you).
 const FLIGHT_GRAVITY := 9.0
-## Air resistance: sets cruising speed with W (~13 m/s) and how fast a dive can get.
+## Air resistance: sets cruising speed with W (~17 m/s level) and how fast a dive can get.
 const FLIGHT_DRAG := 0.02
-const FLIGHT_THRUST := 3.5
+const FLIGHT_THRUST := 6.0
+## In flight, Space only gives lift this close to the ground (meters): for short hops, not flying.
+const SPACE_LIFT_HEIGHT := 1.0
 const FLIGHT_TOP_SPEED := 40.0
 ## Below this speed you stall and start to sink.
 const STALL_SPEED := 5.0
@@ -140,6 +142,8 @@ var has_gills := false
 
 ## Fayran: flying right now; flight energy (0-100); bumping the thin-air ceiling; wings soaked.
 var is_flying := false
+## Fayran: beating the wings right now (holding W in flight).
+var is_flapping := false
 var flight_energy := 100.0
 var at_ceiling := false
 var wings_soaked := false
@@ -253,6 +257,7 @@ func release() -> void:
 	possessed = false
 	is_dashing = false
 	is_flying = false
+	is_flapping = false
 	_swimming = false
 	_fall_from = NAN if is_on_floor() else global_position.y
 	_shove_left = 0.0
@@ -393,7 +398,7 @@ func _physics_process(delta: float) -> void:
 		if dive:
 			_model.wing_mode = "dive"
 		else:
-			_model.wing_mode = "flap" if rise and flight_energy > 0.0 else "glide"
+			_model.wing_mode = "flap" if is_flapping else "glide"
 	else:
 		_model.wing_mode = "folded"
 	var standing := is_on_floor() or _settled
@@ -446,6 +451,17 @@ func _steer(wanted: Vector3, delta: float) -> Vector3:
 	var goal := atan2(-wanted.x, -wanted.z)
 	_heading = rotate_toward(_heading, goal, SERPENT_TURN_RATE * delta)
 	return Vector3(-sin(_heading), 0.0, -cos(_heading)) * wanted.length()
+
+
+## How high the feet are above the ground below (a large number if there's no ground near).
+func _height_above_ground() -> float:
+	if is_on_floor():
+		return 0.0
+	var ray := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 3.0)
+	ray.collision_mask = Layers.WORLD | Layers.THIN
+	ray.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	return global_position.y - (hit["position"] as Vector3).y if hit else INF
 
 
 ## The height of the ground under the body (even mid-jump), so a Kash's tail stays down.
@@ -507,8 +523,11 @@ func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
 	# Elytra-style flight, steered entirely by the camera (mouse): you fly the way it points, up
 	# and down as well as left and right. Look down to dive and pick up speed; look up to climb,
 	# trading speed for height (climb too steeply and you slow, stall and sink).
-	# W flaps for forward thrust, Space beats the wings for lift (both use energy), S brakes,
-	# Shift tucks the wings in for a faster, steeper dive, A/D drift a little to the side.
+	# W beats the wings: a push forward along wherever the camera points (up, down, any way),
+	# using energy. Flapping in a dive drives you down even faster (a near-certain crash!).
+	# S brakes, Shift tucks the wings for a faster, steeper dive, A/D drift a little to the side.
+	# Space doesn't fly: it's only for jumping and taking off (and a little lift right near the
+	# ground, for hopping a gap).
 	var yaw := camera_rig.yaw if camera_rig else _pose.rotation.y
 	var aim := (camera_rig.pitch if camera_rig else 0.0) + FLIGHT_AIM_OFFSET
 	if dive:
@@ -521,30 +540,31 @@ func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
 	if possessed:
 		throttle = Input.get_axis("move_back", "move_forward")
 		drift = Input.get_axis("move_left", "move_right")
+	is_flapping = throttle > 0.1 and flight_energy > 0.0
 
 	# Speed: heading down gains speed, heading up loses it; air resistance holds it back
-	# (less with wings tucked; much more with S braking).
+	# (less with wings tucked; much more with S braking). Flapping pushes you on.
 	_flight_speed += -look.y * FLIGHT_GRAVITY * delta
 	var drag := FLIGHT_DRAG * (0.35 if dive else 1.0) * (4.0 if throttle < -0.1 else 1.0)
 	_flight_speed -= drag * _flight_speed * _flight_speed * delta
-	if throttle > 0.1 and flight_energy > 0.0:
+	if is_flapping:
 		_flight_speed += FLIGHT_THRUST * (1.5 if is_dashing else 1.0) * delta
-		flight_energy = maxf(0.0, flight_energy - FLAP_COST * 0.4 * delta)
-	_flight_speed = clampf(_flight_speed, 0.0, FLIGHT_TOP_SPEED)
-
-	var goal := (look + look.cross(Vector3.UP).normalized() * drift * 0.3).normalized() * _flight_speed
-	# Too slow to stay up: you stall and sink.
-	var stall := clampf((STALL_SPEED - _flight_speed) / STALL_SPEED, 0.0, 1.0)
-	goal.y -= GLIDE_SINK + stall * 5.0
-	# Beating the wings lifts you (tiring).
-	if rise and flight_energy > 0.0:
-		goal.y += FLAP_CLIMB + GLIDE_SINK
-		_flight_speed = maxf(_flight_speed, STALL_SPEED * 0.6)
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
 	elif global_position.y < sea_level + THIN_AIR:
 		# Gliding low, energy slowly comes back (but never fully while airborne).
 		flight_energy = minf(80.0, flight_energy + GLIDE_RECOVERY * delta)
 	# (Gliding up in the thin air, it neither drains nor comes back.)
+	_flight_speed = clampf(_flight_speed, 0.0, FLIGHT_TOP_SPEED)
+
+	var goal := (look + look.cross(Vector3.UP).normalized() * drift * 0.3).normalized() * _flight_speed
+	# Too slow to stay up: you stall and sink. (Flapping keeps you up.)
+	var stall := clampf((STALL_SPEED - _flight_speed) / STALL_SPEED, 0.0, 1.0)
+	if not is_flapping:
+		goal.y -= GLIDE_SINK + stall * 5.0
+	# Space: a little lift, only right near the ground (for hopping a gap or a step).
+	if rise and _height_above_ground() < SPACE_LIFT_HEIGHT and flight_energy > 0.0:
+		goal.y = maxf(goal.y, FLAP_CLIMB)
+		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
 
 	# Too high, and the air is too thin to climb any further.
 	at_ceiling = global_position.y >= sea_level + FLIGHT_CEILING
