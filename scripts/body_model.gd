@@ -194,34 +194,38 @@ func _add_wings(feathers: Color, tips: Color) -> void:
 			covert.size = Vector3(0.2, 0.03, 0.35)
 			_add_part(shoulder, covert, Vector3((0.12 + k * 0.2) * side, -0.02, 0.17), feathers)
 
+		# The lower wing is long: folded, it reaches from the bend above the head almost down to
+		# the feet (stopping just short of the ground). Its flight feathers taper toward the tip.
 		var elbow := _add_pivot(shoulder, Vector3(0.65 * side, 0.0, 0.0))
+		var lower_length := 1.95
 		var lower := BoxMesh.new()
-		lower.size = Vector3(0.95, 0.1, 0.09)
-		_add_part(elbow, lower, Vector3(0.475 * side, 0.0, 0.0), feathers)
-		# Long flight feathers along the trailing edge, longest near the middle.
-		for k in 6:
-			var length := lerpf(0.6, 0.9, sin(PI * (k + 0.5) / 6.0))
+		lower.size = Vector3(lower_length, 0.1, 0.09)
+		_add_part(elbow, lower, Vector3(lower_length * 0.5 * side, 0.0, 0.0), feathers)
+		var feather_count := 9
+		for k in feather_count:
+			var along := float(k) / float(feather_count - 1)
+			var length := lerpf(0.85, 0.3, along * along)  # Longest near the bend, tapering off.
 			var feather := BoxMesh.new()
-			feather.size = Vector3(0.18, 0.03, length)
-			var x := (0.08 + k * 0.17) * side
+			feather.size = Vector3(0.21, 0.03, length)
+			var x := (0.1 + along * (lower_length - 0.15)) * side
 			_add_part(elbow, feather, Vector3(x, -0.02, length * 0.5), tips if k % 2 == 1 else feathers)
 		_wings.append({"shoulder": shoulder, "elbow": elbow, "side": side})
 	_set_wings(0.0, 0.0, 1.0)
 
-	# No tail feathers (on purpose). Instead, a small fan of feathers on each side of each ankle.
-	# On the ground they lie flat down the foot. In flight they spread out to either side, like an
-	# airplane's tail fins (or a kite), sweeping a little up the leg, to catch the wind and hold
-	# the legs up, keeping the body nearly level.
-	for leg in [_left_leg, _right_leg]:
-		for side: float in [-1.0, 1.0]:
-			var fin := _add_pivot(leg, Vector3(0.08 * side, -0.74, 0.02))
-			for k in 3:
-				var feather := BoxMesh.new()
-				feather.size = Vector3(0.06, 0.24, 0.015)
-				var fan := _add_pivot(fin, Vector3.ZERO)
-				fan.rotation.z = (k - 1) * 0.32  # Fanned out flat, like a little wing.
-				_add_part(fan, feather, Vector3(0.0, -0.11, 0.0), tips if k == 1 else feathers)
-			_ankle_fins.append({"pivot": fin, "side": side})
+	# No tail feathers (on purpose). Instead, a fan of feathers on the outer side of each ankle.
+	# On the ground they lie flat along the lower leg (clear of the ground). In flight they spread
+	# out to the side like an airplane's tail fins (or a kite), sweeping a little up the leg, to
+	# catch the wind and hold the legs up, keeping the body nearly level.
+	for leg_side: float in [-1.0, 1.0]:
+		var leg := _left_leg if leg_side < 0.0 else _right_leg
+		var fin := _add_pivot(leg, Vector3(0.08 * leg_side, -0.5, 0.02))
+		for k in 5:
+			var feather := BoxMesh.new()
+			feather.size = Vector3(0.07, 0.26, 0.015)
+			var fan := _add_pivot(fin, Vector3(0.0, -0.04 * k, 0.0))
+			fan.rotation.z = (k - 2) * 0.06 * leg_side  # Nearly parallel: a squarish panel, not a fan.
+			_add_part(fan, feather, Vector3(0.0, -0.12, 0.0), tips if k % 2 == 1 else feathers)
+		_ankle_fins.append({"pivot": fin, "side": leg_side})
 
 
 ## Fayran ankle fins: 0 = lying flat down the foot; 1 = spread out to the side and a little up the leg.
@@ -350,10 +354,28 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 	_right_arm.rotation.z = lerpf(_right_arm.rotation.z, arm_spread, blend)
 
 
-## Kash only: lays the tail out fresh (e.g. after the statue returns to its plinth).
+## Back to the resting pose (e.g. after the statue returns to its plinth): wings folded, ankle
+## feathers down, and a Kash's tail laid out fresh.
 func reset_tail() -> void:
 	if _serpent_tail:
 		_serpent_tail._laid_out = false
+	wing_mode = "folded"
+	body_pitch = 0.0
+	if not _wings.is_empty():
+		_set_wings(0.0, 0.0, 1.0)
+		_set_ankle_fins(0.0, 1.0)
+
+
+## Kash only: an empty statue is falling or sinking; its tail moves along with it, unchanged.
+func carry_serpent_tail() -> void:
+	if _serpent_tail and _serpent_tail._laid_out:
+		_serpent_tail.carry()
+
+
+## Kash only: an empty statue has landed after falling or sinking; its tail settles on the ground.
+func settle_serpent_tail(ground_y: float) -> void:
+	if _serpent_tail:
+		_serpent_tail.lay_out(ground_y)
 
 
 ## Kash only: tells the tail which body it belongs to (so it doesn't treat that body as ground).
@@ -406,6 +428,8 @@ func _animate_wings(delta: float) -> void:
 			_set_wings(1.0, sin(_wing_flap) * 0.65, 1.0 - exp(-20.0 * delta))
 		"glide":
 			_set_wings(1.0, sin(_time * 1.3) * 0.06, blend)
+		"dive":
+			_set_wings(0.55, 0.0, blend)  # Half tucked in for speed.
 		_:
 			_set_wings(0.0, 0.0, blend)
 	_set_ankle_fins(0.0 if wing_mode == "folded" else 1.0, blend)

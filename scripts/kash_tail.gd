@@ -35,6 +35,7 @@ var _segments: Array[Node3D] = []
 var _time := 0.0
 var _wave := 0.0
 var _laid_out := false
+var _last_anchor := Vector3(INF, INF, INF)
 
 
 func _ready() -> void:
@@ -92,6 +93,7 @@ func lay_out(ground_y: float) -> void:
 	_path = PackedVector3Array([start])
 	_path.append_array(_points)
 	_laid_out = true
+	_last_anchor = start
 	_place_segments()
 
 
@@ -103,11 +105,16 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 		lay_out(ground_y)
 		return
 	_time += delta
+	_last_anchor = anchor.global_position
 
 	# The tail follows the line the hips have drawn. Only real movement is recorded, so standing
 	# still never bunches the tail up: it always keeps its full length, lying where the body has been.
+	# On land only sideways movement counts, so jumping (even on the spot) never pulls the tail in.
 	var hips := anchor.global_position
-	if hips.distance_to(_path[0]) > 0.06:
+	var step := hips - _path[0]
+	if not in_water:
+		step.y = 0.0
+	if step.length() > 0.06:
 		_path.insert(0, hips)
 		_trim_path()
 	else:
@@ -116,7 +123,7 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 	# Points along that line...
 	var bases := PackedVector3Array()
 	for i in segment_count:
-		bases.append(_point_along_path(spacing * (i + 1)))
+		bases.append(_point_along_path(spacing * (i + 1), not in_water))
 	# ...pulled a little taut, like a string: sharp corners and tight loops ease out a bit.
 	for pass_count in 2:
 		for i in range(1, segment_count - 1):
@@ -124,9 +131,9 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 			bases[i] = bases[i].lerp(middle, 0.3)
 
 	# The slither: a side-to-side wave that runs down the tail, bigger and quicker when moving.
-	# In water it never stops entirely: the tail keeps gently waving.
+	# In water the tail mostly ripples up and down instead, and never stops entirely.
 	var moving := clampf(speed / 5.0, 0.0, 1.0)
-	var sway := (0.08 if in_water else 0.03) + moving * 0.3
+	var sway := (0.03 + moving * 0.15) if in_water else (0.03 + moving * 0.3)
 	_wave += delta * ((2.4 if in_water else 1.8) + speed * 2.2)
 
 	var ahead := hips
@@ -141,7 +148,10 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 		ahead = base
 		var rest := _ground_at(point, ground_y) + _radius(i) * 0.8
 		if in_water:
-			# Floating free; it only rests on the bottom where it would otherwise sink into it.
+			# Floating out from the hips, settling level with them (more so when still), with a
+			# gentle up-and-down ripple. It only rests on the bottom where it would otherwise sink in.
+			var settle := lerpf(0.9, 0.4, moving)
+			point.y = lerpf(base.y, hips.y, settle) + sin(_wave * 0.8 - i * 0.6) * (0.08 + moving * 0.1) * reach
 			point.y = maxf(point.y, rest)
 		elif on_ground:
 			# On land, the tail lies along the ground (slopes, steps, ledges). Going downhill it
@@ -153,13 +163,28 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 	_place_segments()
 
 
-## The point `distance` meters back along the path the hips have traveled.
-func _point_along_path(distance: float) -> Vector3:
+## Moves the whole tail along with the body without reshaping it: for an empty statue that's
+## falling or sinking, so body and tail always stay together.
+func carry() -> void:
+	var now := anchor.global_position
+	if is_finite(_last_anchor.x):
+		var shift := now - _last_anchor
+		for i in _points.size():
+			_points[i] += shift
+		for k in _path.size():
+			_path[k] += shift
+	_last_anchor = now
+	_place_segments()
+
+
+## The point `distance` meters back along the path the hips have traveled. `flat` measures
+## distance across the ground only (on land), so up-and-down movement never uses up tail.
+func _point_along_path(distance: float, flat := false) -> Vector3:
 	var travelled := 0.0
 	for k in range(_path.size() - 1):
 		var a := _path[k]
 		var b := _path[k + 1]
-		var step := a.distance_to(b)
+		var step := Vector2(a.x - b.x, a.z - b.z).length() if flat else a.distance_to(b)
 		if travelled + step >= distance:
 			return a.lerp(b, (distance - travelled) / step) if step > 0.0001 else a
 		travelled += step
@@ -173,7 +198,8 @@ func _point_along_path(distance: float) -> Vector3:
 
 ## Keeps only as much path as the tail needs.
 func _trim_path() -> void:
-	var needed := spacing * (segment_count + 2)
+	# (A bit extra, since on land up-and-down steps in the path don't count toward the tail's length.)
+	var needed := spacing * (segment_count + 2) * 1.6
 	var travelled := 0.0
 	for k in range(_path.size() - 1):
 		travelled += _path[k].distance_to(_path[k + 1])

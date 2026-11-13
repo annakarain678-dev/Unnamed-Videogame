@@ -107,8 +107,9 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ⬜ Weakness: **some puzzle markings are invisible** to them (ones Humans and Kash can see)
 - ⬜ Weakness: eats only meat (later, with hunger)
 
-**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders. ✅ **Two-jointed wings**, like a bird's (or a chicken's) wing bones: from the shoulder, the upper wing rises to a bend just above the head; from there, the lower wing with the long flight feathers folds back down toward the feet. In flight both parts unfold out to the sides. ✅ **No tail feathers, on purpose.** Instead, a small fan of feathers on each side of each ankle: flat down the foot on the ground; in flight they spread out to either side like an airplane's tail fins (or a kite), sweeping a little up the leg, to catch the wind and hold the legs up.)
-- ✅ **Flight:** jump, then Space again in mid-air to take off. Hold Space to beat your wings and climb, let go to glide gently down, Shift to dive. You land when you touch the ground. Fast (double-tap W flies faster).
+**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders. ✅ **Two-jointed wings**, like a bird's (or a chicken's) wing bones: from the shoulder, the upper wing rises to a bend just above the head; from there, the long lower wing folds back down, **tapering, almost to the feet** (stopping just short of the ground). In flight both parts unfold out to the sides. ✅ **No tail feathers, on purpose.** Instead, a squarish panel of feathers on the **outer side** of each lower leg (clear of the ground): flat along the leg on the ground; in flight it spreads out to the side like an airplane's tail fin (or a kite), sweeping a little up the leg, to catch the wind and hold the legs up.)
+- ✅ **Flight:** jump, then Space again in mid-air to take off. Hold Space to beat your wings and climb. Fast (double-tap W flies faster). You land when you touch the ground.
+- ✅ **Always moving forward, like real flight:** let go of the keys and you **glide on ahead**, gently descending, rather than stopping and dropping. **Shift is a forward dive**: head down, wings half tucked, fast and steep.
 - ✅ **Flight pose:** nearly level, but not quite, more so the faster you fly; legs trailing straight behind, arms swept back; more upright when hovering. ✅ The **wings stay level with the ground** however far the body leans.
 - ✅ **Flight energy is the main limit:** climbing tires you fast; it comes back fully on the ground. Shown as a bar. One full bar climbs ~75 m, enough to land on the giant trees. (Later this becomes hunger.)
 - ✅ **Gliding low** (below ~40 m), energy slowly comes back (up to 80%, never full while airborne), so you can glide a long way. **Up in the thin air** it doesn't come back.
@@ -116,19 +117,20 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ✅ Weakness: **can't swim**: in deep water the wings soak through and you sink (and can drown), and you can't fly again until they dry (~4 s)
 - ⬜ Weakness: **smoke and toxic air** hurt badly
 - ⬜ Weakness: dislikes caves (can't, or won't, go into tight places)
+- 💡 Idea: in the **rainforest**, steady (and growing) rain keeps a Fayran's wings soaked, so it can't always fly there.
 
 **Sen-Kash** (look: ✅ a human upper body on a long snake tail in jewel tones: emerald and gold bands with ruby accents, tan skin, a gold vest and collar, gold slit eyes. No gills.)
-- ✅ **Slithers** instead of walking: the body draws a line and the tail follows it, pulled a little taut like a string (corners and loops tighten slightly), with an S-shaped wave running down it. It **always keeps its full length**, and goes around rocks the body went around rather than hopping over them. Jumps only a little.
+- ✅ **Slithers** instead of walking: the body draws a line and the tail follows it, pulled a little taut like a string (corners and loops tighten slightly), with an S-shaped wave running down it. It **always keeps its full length**, and goes around rocks the body went around rather than hopping over them. Jumps only a little, and **only the torso lifts**: the tail stays on the ground (and jumping on the spot never pulls it in).
 - ✅ **Turns in arcs:** the head swings round at a limited rate, so turning around is a **U-turn** (the front curves back past the tail) rather than spinning on the spot. (Both Kash.)
 - ✅ **Slithers up steep slopes and steps** that walkers have to jump (up to ~70°); the tail lies along the ground over steps and ledges, and drops quickly going downhill
-- ✅ Swims (moderately). **At the surface, swims upright**, driven by the tail like slithering, with only the shoulders and head out of the water; stretches out flat only when diving. **In water, the tail floats free**, gently waving, resting on the bottom only where it actually touches. (Both Kash.)
+- ✅ Swims (moderately). **At the surface, swims upright**, driven by the tail like slithering, with only the shoulders and head out of the water; stretches out flat only when diving. **In water, the tail floats free**, settling level with the hips with a gentle up-and-down ripple, resting on the bottom only where it actually touches. An empty statue left in the water **sinks in one piece**, tail and all. (Both Kash.)
 - ⬜ **Survives heat** that hurts everyone else
 - ⬜ **Soul-sight:** sees an aura of light or shadow on people (and possessed things)
 - ⬜ **Sees math and shape puzzles** others can't
 - ⬜ Metalworking (later)
 
 **Qoi-Kash** (look: ✅ eel-like: dark slate shark-like skin rather than scales, a dorsal fin from the back of the head down the back to the tip of the tail, gills on the sides of the torso, a sleeker head, pale eyes. A bit scary-looking, but not evil.)
-- ✅ Slithers (slowly on land); its tail is shorter than a Sen-Kash's
+- ✅ Slithers on land **exactly like the Sen-Kash** (same speed and movement); its tail is a little shorter
 - ✅ **Gills: at home underwater**: fast swimmer, dives and rises quickly, stays at whatever depth you choose
 - ⬜ **Fits tight crawlspaces**
 - ⬜ **Survives toxic air** longer

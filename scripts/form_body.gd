@@ -41,7 +41,8 @@ const SPECIES := {
 	"Tar'ye": {"walk": 5.0, "run": 8.5, "jump": 1.5, "swim": 2.0, "strong": true},
 	"Fayran": {"walk": 4.6, "run": 7.2, "jump": 1.2, "swim": 0.0, "fly": true},
 	"Sen-Kash": {"walk": 4.0, "run": 6.5, "jump": 0.6, "swim": 3.2},
-	"Qoi-Kash": {"walk": 3.0, "run": 4.2, "jump": 0.5, "swim": 5.5, "gills": true},
+	# On land, both Kash slither exactly alike; the Qoi-Kash's gift is the water.
+	"Qoi-Kash": {"walk": 4.0, "run": 6.5, "jump": 0.6, "swim": 5.5, "gills": true},
 }
 
 ## Flight (Fayran).
@@ -65,8 +66,12 @@ const THIN_AIR := 40.0
 const SERPENT_TURN_RATE := 3.5
 ## Kash float lower than walkers at the surface: just the shoulders and head out of the water.
 const SERPENT_FLOAT_DEPTH := 1.5
-## In flight the body lies nearly level (but not quite), legs trailing behind.
+## In flight the body lies nearly level (but not quite), legs trailing behind; in a dive, head down.
 const FLIGHT_TILT := -1.2
+const DIVE_TILT := -1.85
+## Letting go of the keys in flight, you keep gliding forward at this speed; a dive goes faster.
+const GLIDE_FORWARD_SPEED := 5.5
+const DIVE_FORWARD_SPEED := 13.0
 
 ## Breath: seconds a body can stay with its head underwater. Gills never run out.
 const BREATH := {"Human": 15.0, "Tar'ye": 12.0, "Fayran": 8.0, "Sen-Kash": 15.0}
@@ -153,6 +158,7 @@ var _home_facing := 0.0
 ## rate, so a Kash curves around in an arc (a U-turn) rather than spinning on the spot.
 var _heading := 0.0
 var serpent := false
+var _tail_carried := false
 ## While an empty statue is falling: the height it started falling from.
 var _fall_from := NAN
 
@@ -344,7 +350,10 @@ func _physics_process(delta: float) -> void:
 	var turn_rate := angle_difference(yaw_before, _pose.rotation.y) / delta
 	_model.pose = "struggle" if is_struggling else ("push" if _shove_left > 0.0 else "")
 	if is_flying:
-		_model.wing_mode = "flap" if rise and flight_energy > 0.0 else "glide"
+		if dive:
+			_model.wing_mode = "dive"
+		else:
+			_model.wing_mode = "flap" if rise and flight_energy > 0.0 else "glide"
 	else:
 		_model.wing_mode = "folded"
 	var standing := is_on_floor() or _settled
@@ -352,7 +361,19 @@ func _physics_process(delta: float) -> void:
 	var stroke_speed := horizontal_speed if can_swim or not _swimming else 0.0
 	_model.body_pitch = _pose.rotation.x
 	_model.animate(stroke_speed, _swimming, standing, delta, possessed, turn_rate)
-	_model.update_serpent_tail(delta, horizontal_speed, global_position.y, standing, possessed, _swimming)
+	if possessed:
+		# On land the tail always lies along the ground, even mid-jump: only the torso lifts.
+		_model.update_serpent_tail(delta, horizontal_speed, _ground_height(), not _swimming, true, _swimming)
+	elif not _settled:
+		# An empty statue falling or sinking: the tail comes along with it, in one piece.
+		_model.carry_serpent_tail()
+		_tail_carried = _tail_carried or velocity.length() > 0.3
+	elif _tail_carried:
+		# ...and once it lands, the tail settles on the ground beside it.
+		_model.settle_serpent_tail(global_position.y)
+		_tail_carried = false
+	else:
+		_model.update_serpent_tail(delta, 0.0, global_position.y, true, false)
 
 
 ## Kash: the head swings round toward where you want to go at a limited rate, and the body always
@@ -364,6 +385,17 @@ func _steer(wanted: Vector3, delta: float) -> Vector3:
 	var goal := atan2(-wanted.x, -wanted.z)
 	_heading = rotate_toward(_heading, goal, SERPENT_TURN_RATE * delta)
 	return Vector3(-sin(_heading), 0.0, -cos(_heading)) * wanted.length()
+
+
+## The height of the ground under the body (even mid-jump), so a Kash's tail stays down.
+func _ground_height() -> float:
+	if is_on_floor():
+		return global_position.y
+	var ray := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 5.0)
+	ray.collision_mask = Layers.WORLD | Layers.THIN
+	ray.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	return (hit["position"] as Vector3).y if hit else global_position.y
 
 
 ## How deep the body floats at the surface: walkers float with their chest at the surface; Kash
@@ -410,10 +442,19 @@ func _update_wings(delta: float, jump: bool) -> void:
 
 
 func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
+	# Flying always carries you forward, the way real flight works: let go of the keys and you
+	# glide on ahead, gently descending, rather than stopping and dropping. Shift tips you into a
+	# steep forward dive.
+	var forward := Vector3(-sin(_pose.rotation.y), 0.0, -cos(_pose.rotation.y))
+	var heading := direction.normalized() if direction.length() > 0.1 else forward
 	var speed := FLY_DASH_SPEED if is_dashing else FLY_SPEED
+	if direction.length() <= 0.1:
+		speed = GLIDE_FORWARD_SPEED
+	if dive:
+		speed = DIVE_FORWARD_SPEED
 	var weight := 1.0 - exp(-3.0 * delta)
-	velocity.x = lerpf(velocity.x, direction.x * speed, weight)
-	velocity.z = lerpf(velocity.z, direction.z * speed, weight)
+	velocity.x = lerpf(velocity.x, heading.x * speed, weight)
+	velocity.z = lerpf(velocity.z, heading.z * speed, weight)
 
 	# Beat your wings to climb (tiring); otherwise glide gently down; or dive.
 	var vertical := -GLIDE_SINK
@@ -557,6 +598,8 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	var goal_tilt := 0.0
 	if _swimming and horizontal_speed > 0.6 and can_swim and not serpent_at_surface:
 		goal_tilt = SWIM_TILT
+	elif is_flying and Input.is_action_pressed("float_down") and possessed:
+		goal_tilt = DIVE_TILT  # Head down into the dive.
 	elif is_flying:
 		# Nearly level in flight (not quite), more so the faster you go; more upright when hovering.
 		goal_tilt = lerpf(-0.35, FLIGHT_TILT, clampf(horizontal_speed / FLY_SPEED, 0.0, 1.0))
