@@ -47,17 +47,14 @@ const SPECIES := {
 
 ## Flight (Fayran).
 const FLY_SPEED := 8.5
-const FLY_DASH_SPEED := 12.0
 const FLAP_CLIMB := 4.5
 const GLIDE_SINK := 1.2
-const DIVE_SPEED := 7.0
 ## The world's height limit: above this the air is too thin to climb. It's set high; the real
 ## limit on flying is energy.
 const FLIGHT_CEILING := 120.0
-## Flight energy (0-100): beating your wings to climb uses it fast, gliding slowly; it comes back
+## Flight energy (0-100): beating your wings uses it; it comes back
 ## on the ground. (Later this becomes hunger.) Enough to climb well above the giant trees.
 const FLAP_COST := 6.0
-const GLIDE_COST := 2.0
 ## Gliding low (below the thin air), energy slowly comes back, so a Fayran can glide a long way.
 ## Up in the thin air it doesn't.
 const GLIDE_RECOVERY := 3.0
@@ -66,25 +63,32 @@ const THIN_AIR := 40.0
 const SERPENT_TURN_RATE := 3.5
 ## Kash float lower than walkers at the surface: just the shoulders and head out of the water.
 const SERPENT_FLOAT_DEPTH := 1.5
-## In flight the body lies nearly level (but not quite), legs trailing behind; in a dive, head down.
+## In flight the body lies nearly level (but not quite), legs trailing behind.
 const FLIGHT_TILT := -1.2
-const DIVE_TILT := -1.85
-## A long dive tips further, toward straight down.
-const STEEP_DIVE_TILT := -2.4
 ## In flight the body pivots on the point between the wings (higher, and toward the back, compared
 ## with the hips it pivots on when walking).
 const FLIGHT_PIVOT_RAISE := 0.52
 const FLIGHT_PIVOT_BACK := 0.2
-## Flying with S held: slower, but still moving forward.
-const FLY_SLOW_SPEED := 3.0
-## Letting go of the keys in flight, you keep gliding forward at this speed; a dive goes faster.
-const GLIDE_FORWARD_SPEED := 5.5
-const DIVE_FORWARD_SPEED := 13.0
-## The longer you dive, the faster you go (m/s gained per second), up to a top speed.
-const DIVE_ACCELERATION := 8.0
-const DIVE_TOP_SPEED := 32.0
-## Hitting the ground faster than this (m/s, straight down) breaks the body, like a ~10 m fall.
-const CRASH_SPEED := 14.0
+## Elytra-style flight. The camera's aim is nudged up slightly, so the camera's usual slight
+## downward look gives a gentle, speed-keeping glide.
+const FLIGHT_AIM_OFFSET := 0.035
+## Shift (wings tucked) pitches you this much further down.
+const DIVE_AIM_EXTRA := 0.5
+## How strongly heading down speeds you up (and heading up slows you).
+const FLIGHT_GRAVITY := 9.0
+## Air resistance: sets cruising speed with W (~13 m/s) and how fast a dive can get.
+const FLIGHT_DRAG := 0.02
+const FLIGHT_THRUST := 3.5
+const FLIGHT_TOP_SPEED := 40.0
+## Below this speed you stall and start to sink.
+const STALL_SPEED := 5.0
+
+## Crashing: how much speed a collision has to knock off to break the body, depending on which
+## way the body hits. Feet first is about a ~9 m drop; head first about half that; side-on or
+## flat needs a really hard slam.
+const CRASH_HEAD_FIRST := 12.0
+const CRASH_FEET_FIRST := 23.0
+const CRASH_SIDE_ON := 32.0
 
 ## Breath: seconds a body can stay with its head underwater. Gills never run out.
 const BREATH := {"Human": 15.0, "Tar'ye": 12.0, "Fayran": 8.0, "Sen-Kash": 15.0}
@@ -172,7 +176,8 @@ var _home_facing := 0.0
 var _heading := 0.0
 var serpent := false
 var _tail_carried := false
-var _dive_time := 0.0
+## Fayran: current flying speed along the way you're heading.
+var _flight_speed := 0.0
 var _bank: Node3D
 var _turn_rate := 0.0
 ## 0 on the ground, 1 in flight: in flight the body turns and tips around the chest (where the
@@ -359,11 +364,10 @@ func _physics_process(delta: float) -> void:
 			_walk(delta, direction, jump)
 		if not possessed and is_nan(_fall_from) and not is_on_floor() and velocity.y < 0.0:
 			_fall_from = global_position.y  # An empty statue has started to fall.
-		var was_airborne := not is_on_floor()
-		var falling_speed := -velocity.y
+		var before_hit := velocity
 		move_and_slide()
-		# Hitting the ground as hard as a ~10 m fall (say, out of a steep dive) breaks the body.
-		if possessed and was_airborne and is_on_floor() and falling_speed > CRASH_SPEED:
+		# Slamming into anything (the ground, a tree, a wall) can break the body: see _check_crash.
+		if possessed and _check_crash(before_hit, velocity):
 			_report_lost("crashed")
 			return
 		if not possessed and is_on_floor():
@@ -412,6 +416,25 @@ func _physics_process(delta: float) -> void:
 		_tail_carried = false
 	else:
 		_model.update_serpent_tail(delta, 0.0, global_position.y, true, false)
+
+
+## Does a collision this frame break the body? It depends on how hard you hit (how much speed the
+## collision took away) and which way the body was pointing into it:
+## - head first: breaks at a fairly low speed;
+## - feet first: in between (you'd break your legs, but landing that way slows you);
+## - side-on or flat, like skidding along the ground: takes a really hard slam (and skidding along
+##   barely loses any speed, so you usually just slide and survive).
+func _check_crash(before: Vector3, after: Vector3) -> bool:
+	var lost := before - after
+	var impact := lost.length()
+	if impact < CRASH_HEAD_FIRST:
+		return false
+	# Which way the head points (along the spine), versus the direction of the blow.
+	var head := (_bank.global_basis.y).normalized()
+	var into := head.dot(lost.normalized())  # 1 = head first, -1 = feet first, 0 = side-on / flat.
+	var limit := lerpf(CRASH_SIDE_ON, CRASH_HEAD_FIRST, into) if into > 0.0 \
+		else lerpf(CRASH_SIDE_ON, CRASH_FEET_FIRST, -into)
+	return impact > limit
 
 
 ## Kash: the head swings round toward where you want to go at a limited rate, and the body always
@@ -477,43 +500,46 @@ func _update_wings(delta: float, jump: bool) -> void:
 			and not wings_soaked and flight_energy > 5.0:
 		is_flying = true
 		velocity.y = maxf(velocity.y, 2.0)
+		_flight_speed = maxf(Vector2(velocity.x, velocity.z).length(), 6.0)
 
 
-func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
-	# Steered with the mouse, like the wisp: you always fly the way the camera faces.
-	# Flying always carries you forward, the way real flight works: W flies at full speed, no keys
-	# glides on ahead (gently descending), S slows you down, A/D drift a little to the side.
-	# Shift tips you into a forward dive.
-	var forward := Vector3(-sin(_pose.rotation.y), 0.0, -cos(_pose.rotation.y))
-	if camera_rig:
-		forward = Vector3(-sin(camera_rig.yaw), 0.0, -cos(camera_rig.yaw))
+func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
+	# Elytra-style flight, steered entirely by the camera (mouse): you fly the way it points, up
+	# and down as well as left and right. Look down to dive and pick up speed; look up to climb,
+	# trading speed for height (climb too steeply and you slow, stall and sink).
+	# W flaps for forward thrust, Space beats the wings for lift (both use energy), S brakes,
+	# Shift tucks the wings in for a faster, steeper dive, A/D drift a little to the side.
+	var yaw := camera_rig.yaw if camera_rig else _pose.rotation.y
+	var aim := (camera_rig.pitch if camera_rig else 0.0) + FLIGHT_AIM_OFFSET
+	if dive:
+		aim -= DIVE_AIM_EXTRA  # Tucking the wings pitches you down further.
+	aim = clampf(aim, -1.45, 1.0)
+	var look := Vector3(-sin(yaw) * cos(aim), sin(aim), -cos(yaw) * cos(aim))
+
 	var throttle := 0.0
 	var drift := 0.0
 	if possessed:
 		throttle = Input.get_axis("move_back", "move_forward")
 		drift = Input.get_axis("move_left", "move_right")
-	var heading := (forward + forward.cross(Vector3.UP) * drift * 0.4).normalized()
-	var speed := GLIDE_FORWARD_SPEED
-	if throttle > 0.1:
-		speed = FLY_DASH_SPEED if is_dashing else FLY_SPEED
-	elif throttle < -0.1:
-		speed = FLY_SLOW_SPEED
-	# The longer the dive, the faster and steeper it gets.
-	_dive_time = _dive_time + delta if dive else 0.0
-	var dive_speed := minf(DIVE_FORWARD_SPEED + DIVE_ACCELERATION * _dive_time, DIVE_TOP_SPEED)
-	var steepness := clampf(_dive_time / 3.0, 0.0, 1.0)
-	if dive:
-		speed = dive_speed * lerpf(1.0, 0.45, steepness)
-	var weight := 1.0 - exp(-3.0 * delta)
-	velocity.x = lerpf(velocity.x, heading.x * speed, weight)
-	velocity.z = lerpf(velocity.z, heading.z * speed, weight)
 
-	# Beat your wings to climb (tiring); otherwise glide gently down; or dive.
-	var vertical := -GLIDE_SINK
-	if dive:
-		vertical = -dive_speed * lerpf(0.6, 1.0, steepness)
-	elif rise and flight_energy > 0.0:
-		vertical = FLAP_CLIMB
+	# Speed: heading down gains speed, heading up loses it; air resistance holds it back
+	# (less with wings tucked; much more with S braking).
+	_flight_speed += -look.y * FLIGHT_GRAVITY * delta
+	var drag := FLIGHT_DRAG * (0.35 if dive else 1.0) * (4.0 if throttle < -0.1 else 1.0)
+	_flight_speed -= drag * _flight_speed * _flight_speed * delta
+	if throttle > 0.1 and flight_energy > 0.0:
+		_flight_speed += FLIGHT_THRUST * (1.5 if is_dashing else 1.0) * delta
+		flight_energy = maxf(0.0, flight_energy - FLAP_COST * 0.4 * delta)
+	_flight_speed = clampf(_flight_speed, 0.0, FLIGHT_TOP_SPEED)
+
+	var goal := (look + look.cross(Vector3.UP).normalized() * drift * 0.3).normalized() * _flight_speed
+	# Too slow to stay up: you stall and sink.
+	var stall := clampf((STALL_SPEED - _flight_speed) / STALL_SPEED, 0.0, 1.0)
+	goal.y -= GLIDE_SINK + stall * 5.0
+	# Beating the wings lifts you (tiring).
+	if rise and flight_energy > 0.0:
+		goal.y += FLAP_CLIMB + GLIDE_SINK
+		_flight_speed = maxf(_flight_speed, STALL_SPEED * 0.6)
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
 	elif global_position.y < sea_level + THIN_AIR:
 		# Gliding low, energy slowly comes back (but never fully while airborne).
@@ -522,9 +548,9 @@ func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 
 	# Too high, and the air is too thin to climb any further.
 	at_ceiling = global_position.y >= sea_level + FLIGHT_CEILING
-	if at_ceiling and vertical > 0.0:
-		vertical = 0.0
-	velocity.y = lerpf(velocity.y, vertical, 1.0 - exp(-4.0 * delta))
+	if at_ceiling and goal.y > 0.0:
+		goal.y = 0.0
+	velocity = velocity.lerp(goal, 1.0 - exp(-4.0 * delta))
 
 
 ## For bodies that can't swim (Fayran): in deep water they flounder and slowly sink.
@@ -669,12 +695,13 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	var goal_tilt := 0.0
 	if _swimming and horizontal_speed > 0.6 and can_swim and not serpent_at_surface:
 		goal_tilt = SWIM_TILT
-	elif is_flying and Input.is_action_pressed("float_down") and possessed:
-		# Head down into the dive, tipping steeper the longer it goes on.
-		goal_tilt = lerpf(DIVE_TILT, STEEP_DIVE_TILT, clampf(_dive_time / 3.0, 0.0, 1.0))
 	elif is_flying:
-		# Nearly level in flight (not quite), more so the faster you go; more upright when hovering.
-		goal_tilt = lerpf(-0.35, FLIGHT_TILT, clampf(horizontal_speed / FLY_SPEED, 0.0, 1.0))
+		# The body follows the flight path: nearly level when cruising, head down when diving,
+		# more upright when climbing or hovering slowly.
+		var flat_speed := Vector2(velocity.x, velocity.z).length()
+		var path_pitch := atan2(velocity.y, maxf(flat_speed, 0.01))
+		var cruising := clampf(velocity.length() / FLY_SPEED, 0.0, 1.0)
+		goal_tilt = clampf(lerpf(-0.35, FLIGHT_TILT, cruising) + path_pitch * 0.9, -2.6, -0.2)
 	elif _struggle_left > 0.0:
 		goal_tilt = EFFORT_TILT
 	elif _shove_left > 0.0:
