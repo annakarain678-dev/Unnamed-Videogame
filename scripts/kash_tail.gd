@@ -36,6 +36,9 @@ var _time := 0.0
 var _wave := 0.0
 var _laid_out := false
 var _last_anchor := Vector3(INF, INF, INF)
+## The tail's shape in water (without the ripple), and whether it was in water last frame.
+var _rope := PackedVector3Array()
+var _was_in_water := false
 
 
 func _ready() -> void:
@@ -106,6 +109,17 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 		return
 	_time += delta
 	_last_anchor = anchor.global_position
+	if in_water:
+		if not _was_in_water:
+			_rope = _points.duplicate()  # Just entered the water: start from the tail's current shape.
+		_was_in_water = true
+		_update_in_water(delta, speed, ground_y)
+		return
+	if _was_in_water:
+		# Just climbed out: carry on along the shape the tail had in the water.
+		_was_in_water = false
+		_path = PackedVector3Array([anchor.global_position])
+		_path.append_array(_points)
 
 	# The tail follows the line the hips have drawn. Only real movement is recorded, so standing
 	# still never bunches the tail up: it always keeps its full length, lying where the body has been.
@@ -147,19 +161,64 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 		var point := base + side * sin(_wave - i * 0.55) * sway * reach
 		ahead = base
 		var rest := _ground_at(point, ground_y) + _radius(i) * 0.8
-		if in_water:
-			# Floating out from the hips, settling level with them (more so when still), with a
-			# gentle up-and-down ripple. It only rests on the bottom where it would otherwise sink in.
-			var settle := lerpf(0.9, 0.4, moving)
-			point.y = lerpf(base.y, hips.y, settle) + sin(_wave * 0.8 - i * 0.6) * (0.08 + moving * 0.1) * reach
-			point.y = maxf(point.y, rest)
-		elif on_ground:
+		if on_ground:
 			# On land, the tail lies along the ground (slopes, steps, ledges). Going downhill it
 			# drops quickly rather than hanging in the air.
 			var speed_down := 30.0 if _points[i].y > rest else 14.0
 			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-speed_down * delta))
 			point.y = maxf(point.y, rest - 0.05)
 		_points[i] = point
+	_place_segments()
+
+
+## In water the tail behaves like a supple but slightly stiff rope hanging from the hips:
+## - every segment keeps exactly one spacing from the one ahead, so the tail always keeps its
+##   full length and can't scrunch up, whichever way you move (up, down, sideways, forward);
+## - it trails behind wherever the body has gone (below you as you rise, above you as you dive);
+## - it resists bending sharply, so it curves smoothly instead of hinging at angles;
+## - at rest it droops into a gentle downward curve, with a slow ripple running down it.
+func _update_in_water(delta: float, speed: float, ground_y: float) -> void:
+	var moving := clampf(speed / 5.0, 0.0, 1.0)
+	_wave += delta * (2.4 + speed * 2.2)
+	var hips := anchor.global_position
+	# The tail leaves the hips heading straight back from the body.
+	var out := anchor.global_basis.z.normalized()
+
+	var leader := hips
+	var direction := out
+	for i in segment_count:
+		var along := float(i + 1) / float(segment_count)
+		var p := _rope[i]
+		# A gentle droop, stronger toward the tip (less while swimming hard).
+		p.y -= (0.6 + along * 1.2) * (1.0 - moving * 0.6) * delta
+		# Hang exactly one spacing behind the segment ahead.
+		var offset := p - leader
+		if offset.length() < 0.001:
+			offset = direction * 0.01
+		p = leader + offset.normalized() * spacing
+		# Stiffness: lean toward carrying straight on from the segment ahead (no sharp hinges).
+		var straight := leader + direction * spacing
+		p = p.lerp(straight, 0.12)
+		p = leader + (p - leader).normalized() * spacing
+		# It rests on the bottom only where it would otherwise sink into it...
+		p.y = maxf(p.y, _ground_at(p, ground_y) + _radius(i) * 0.8)
+		# ...and nothing is allowed to change its length.
+		p = leader + (p - leader).normalized() * spacing
+		_rope[i] = p
+		direction = (p - leader).normalized()
+		leader = p
+
+	# What you see: the rope, plus a soft side-to-side and up-and-down ripple running down it.
+	leader = hips
+	for i in segment_count:
+		var p := _rope[i]
+		var flat := Vector3(p.x - leader.x, 0.0, p.z - leader.z)
+		var side := flat.cross(Vector3.UP).normalized() if flat.length() > 0.001 else Vector3.ZERO
+		var reach := clampf((i + 1) / 4.0, 0.0, 1.0)
+		var ripple := sin(_wave * 0.8 - i * 0.6) * (0.06 + moving * 0.08) * reach
+		var sway := sin(_wave - i * 0.55) * (0.03 + moving * 0.12) * reach
+		_points[i] = p + Vector3.UP * ripple + side * sway
+		leader = p
 	_place_segments()
 
 
@@ -173,6 +232,8 @@ func carry() -> void:
 			_points[i] += shift
 		for k in _path.size():
 			_path[k] += shift
+		for k in _rope.size():
+			_rope[k] += shift
 	_last_anchor = now
 	_place_segments()
 

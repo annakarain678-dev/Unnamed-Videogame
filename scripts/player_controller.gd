@@ -61,6 +61,10 @@ func on_body_lost(body: FormBody, reason: String) -> void:
 		_leave_body()
 		body.return_home()
 		_notice("You drowned. The %s statue is back on its plinth." % body.species)
+	elif reason == "crashed" and body == current_body:
+		_leave_body()
+		body.return_home()
+		_notice("You hit the ground too hard and shattered. The %s statue is back on its plinth." % body.species)
 	elif reason == "shattered":
 		_notice("The %s statue shattered from the fall. It's back on its plinth." % body.species)
 

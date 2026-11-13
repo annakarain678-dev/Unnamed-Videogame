@@ -58,6 +58,8 @@ var _wings: Array[Dictionary] = []  # { "shoulder", "elbow", "side" }
 var _wing_flap := 0.0
 ## How far the body is tipped forward (set by the body each frame), so the wings can stay level.
 var body_pitch := 0.0
+## How far the body is rolled into a turn (set by the body), for the wings and legs to follow.
+var bank := 0.0
 var _ankle_fins: Array[Dictionary] = []
 var _parts: Array[Dictionary] = []  # { "material": StandardMaterial3D, "alive": Color }
 var _left_leg: Node3D
@@ -245,7 +247,9 @@ func _set_wings(spread: float, beat: float, blend: float) -> void:
 		var shoulder: Node3D = wing["shoulder"]
 		var elbow: Node3D = wing["elbow"]
 		# Shoulder: folded, the upper wing points up and a little out, swept back; spread, sideways.
-		var shoulder_z := lerpf(1.25, 0.0, spread) * side + beat * side
+		# Banking into a turn: the inner wing dips, the outer one lifts.
+		var turn_tilt := -bank * 0.5 * side * spread
+		var shoulder_z := lerpf(1.25, 0.0, spread) * side + beat * side + turn_tilt
 		var shoulder_y := lerpf(-0.45, 0.0, spread) * side
 		# Lean the wing back against the body's tilt, so it stays level in flight.
 		var shoulder_x := -body_pitch * spread
@@ -352,6 +356,10 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 	_right_arm.rotation.x = lerpf(_right_arm.rotation.x, right_arm, blend)
 	_left_arm.rotation.z = lerpf(_left_arm.rotation.z, -arm_spread, blend)
 	_right_arm.rotation.z = lerpf(_right_arm.rotation.z, arm_spread, blend)
+	# In a banked turn, the legs steer a little too: the inner foot lifts slightly.
+	var leg_steer := bank * 0.35 if wing_mode != "folded" else 0.0
+	_left_leg.rotation.z = lerpf(_left_leg.rotation.z, leg_steer, blend)
+	_right_leg.rotation.z = lerpf(_right_leg.rotation.z, leg_steer, blend)
 
 
 ## Back to the resting pose (e.g. after the statue returns to its plinth): wings folded, ankle
@@ -361,6 +369,7 @@ func reset_tail() -> void:
 		_serpent_tail._laid_out = false
 	wing_mode = "folded"
 	body_pitch = 0.0
+	bank = 0.0
 	if not _wings.is_empty():
 		_set_wings(0.0, 0.0, 1.0)
 		_set_ankle_fins(0.0, 1.0)
@@ -427,7 +436,10 @@ func _animate_wings(delta: float) -> void:
 			_wing_flap += delta * 9.0
 			_set_wings(1.0, sin(_wing_flap) * 0.65, 1.0 - exp(-20.0 * delta))
 		"glide":
-			_set_wings(1.0, sin(_time * 1.3) * 0.06, blend)
+			# Mostly still, gently tilting; every few seconds, a quick double flap.
+			var cycle := fmod(_time, 4.5)
+			var flap := sin(cycle / 0.8 * TAU * 2.0) * 0.45 if cycle < 0.8 else 0.0
+			_set_wings(1.0, sin(_time * 1.3) * 0.06 + flap, 1.0 - exp(-14.0 * delta))
 		"dive":
 			_set_wings(0.55, 0.0, blend)  # Half tucked in for speed.
 		_:

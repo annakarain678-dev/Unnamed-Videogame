@@ -69,9 +69,16 @@ const SERPENT_FLOAT_DEPTH := 1.5
 ## In flight the body lies nearly level (but not quite), legs trailing behind; in a dive, head down.
 const FLIGHT_TILT := -1.2
 const DIVE_TILT := -1.85
+## In flight the body pivots this much higher (at the chest, where the wings are) than on foot.
+const FLIGHT_PIVOT_RAISE := 0.5
 ## Letting go of the keys in flight, you keep gliding forward at this speed; a dive goes faster.
 const GLIDE_FORWARD_SPEED := 5.5
 const DIVE_FORWARD_SPEED := 13.0
+## The longer you dive, the faster you go (m/s gained per second), up to a top speed.
+const DIVE_ACCELERATION := 8.0
+const DIVE_TOP_SPEED := 32.0
+## Hitting the ground faster than this (m/s, straight down) breaks the body, like a ~10 m fall.
+const CRASH_SPEED := 14.0
 
 ## Breath: seconds a body can stay with its head underwater. Gills never run out.
 const BREATH := {"Human": 15.0, "Tar'ye": 12.0, "Fayran": 8.0, "Sen-Kash": 15.0}
@@ -159,6 +166,12 @@ var _home_facing := 0.0
 var _heading := 0.0
 var serpent := false
 var _tail_carried := false
+var _dive_time := 0.0
+var _bank: Node3D
+var _turn_rate := 0.0
+## 0 on the ground, 1 in flight: in flight the body turns and tips around the chest (where the
+## wings are) rather than the hips.
+var _flight_pivot := 0.0
 ## While an empty statue is falling: the height it started falling from.
 var _fall_from := NAN
 
@@ -204,9 +217,14 @@ func _ready() -> void:
 	_pose.rotation.y = deg_to_rad(facing_degrees)
 	add_child(_pose)
 
+	# Between the pose and the model: a joint that rolls the body along its spine (banking into a
+	# turn in flight).
+	_bank = Node3D.new()
+	_pose.add_child(_bank)
+
 	_model = BodyModel.new(species)
 	_model.position.y = -POSE_PIVOT
-	_pose.add_child(_model)
+	_bank.add_child(_model)
 	_model.set_owner_body(self)
 	_model.set_stone(true)
 
@@ -238,6 +256,11 @@ func return_home() -> void:
 	global_transform = _home
 	velocity = Vector3.ZERO
 	_pose.rotation = Vector3(0.0, _home_facing, 0.0)
+	_pose.position.y = POSE_PIVOT
+	_model.position.y = -POSE_PIVOT
+	_bank.rotation = Vector3.ZERO
+	_flight_pivot = 0.0
+	_turn_rate = 0.0
 	_heading = _home_facing
 	_swimming = false
 	is_flying = false
@@ -330,7 +353,13 @@ func _physics_process(delta: float) -> void:
 			_walk(delta, direction, jump)
 		if not possessed and is_nan(_fall_from) and not is_on_floor() and velocity.y < 0.0:
 			_fall_from = global_position.y  # An empty statue has started to fall.
+		var was_airborne := not is_on_floor()
+		var falling_speed := -velocity.y
 		move_and_slide()
+		# Hitting the ground as hard as a ~10 m fall (say, out of a steep dive) breaks the body.
+		if possessed and was_airborne and is_on_floor() and falling_speed > CRASH_SPEED:
+			_report_lost("crashed")
+			return
 		if not possessed and is_on_floor():
 			_settled = true
 			# A statue that fell a long way shatters. (For now, it just returns to its plinth.)
@@ -348,6 +377,7 @@ func _physics_process(delta: float) -> void:
 	var yaw_before := _pose.rotation.y
 	_update_pose(delta, horizontal_speed)
 	var turn_rate := angle_difference(yaw_before, _pose.rotation.y) / delta
+	_turn_rate = lerpf(_turn_rate, turn_rate, 1.0 - exp(-8.0 * delta))
 	_model.pose = "struggle" if is_struggling else ("push" if _shove_left > 0.0 else "")
 	if is_flying:
 		if dive:
@@ -363,7 +393,9 @@ func _physics_process(delta: float) -> void:
 	_model.animate(stroke_speed, _swimming, standing, delta, possessed, turn_rate)
 	if possessed:
 		# On land the tail always lies along the ground, even mid-jump: only the torso lifts.
-		_model.update_serpent_tail(delta, horizontal_speed, _ground_height(), not _swimming, true, _swimming)
+		# (In water, the tail responds to all movement, up and down included.)
+		var tail_speed := velocity.length() if _swimming else horizontal_speed
+		_model.update_serpent_tail(delta, tail_speed, _ground_height(), not _swimming, true, _swimming)
 	elif not _settled:
 		# An empty statue falling or sinking: the tail comes along with it, in one piece.
 		_model.carry_serpent_tail()
@@ -450,8 +482,11 @@ func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 	var speed := FLY_DASH_SPEED if is_dashing else FLY_SPEED
 	if direction.length() <= 0.1:
 		speed = GLIDE_FORWARD_SPEED
+	# The longer the dive, the faster it gets.
+	_dive_time = _dive_time + delta if dive else 0.0
+	var dive_speed := minf(DIVE_FORWARD_SPEED + DIVE_ACCELERATION * _dive_time, DIVE_TOP_SPEED)
 	if dive:
-		speed = DIVE_FORWARD_SPEED
+		speed = dive_speed
 	var weight := 1.0 - exp(-3.0 * delta)
 	velocity.x = lerpf(velocity.x, heading.x * speed, weight)
 	velocity.z = lerpf(velocity.z, heading.z * speed, weight)
@@ -459,7 +494,7 @@ func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 	# Beat your wings to climb (tiring); otherwise glide gently down; or dive.
 	var vertical := -GLIDE_SINK
 	if dive:
-		vertical = -DIVE_SPEED
+		vertical = -dive_speed * 0.6
 	elif rise and flight_energy > 0.0:
 		vertical = FLAP_CLIMB
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
@@ -543,14 +578,24 @@ func _update_swimming() -> void:
 		_swimming = false
 	elif not _swimming and global_position.y + CHEST < sea_level:
 		_swimming = true
-	elif _swimming and global_position.y + CHEST > sea_level + 0.35:
+	elif _swimming and is_on_floor() and global_position.y + CHEST > sea_level + 0.35:
+		# Only once you're standing in the shallows (bobbing up at the surface doesn't count).
 		_swimming = false
 
 
 func _swim(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 	var weight := 1.0 - exp(-4.0 * delta)
-	velocity.x = lerpf(velocity.x, direction.x * swim_speed, weight)
-	velocity.z = lerpf(velocity.z, direction.z * swim_speed, weight)
+	if serpent:
+		# A Kash swims the way its head points (like slithering): it curves round to turn, and
+		# never slides sideways through the water.
+		var flat_speed := Vector2(velocity.x, velocity.z).length()
+		flat_speed = lerpf(flat_speed, direction.length() * swim_speed, weight)
+		var ahead := Vector3(-sin(_heading), 0.0, -cos(_heading))
+		velocity.x = ahead.x * flat_speed
+		velocity.z = ahead.z * flat_speed
+	else:
+		velocity.x = lerpf(velocity.x, direction.x * swim_speed, weight)
+		velocity.z = lerpf(velocity.z, direction.z * swim_speed, weight)
 
 	# Underwater you hold your depth unless you swim up or down.
 	var vertical := 0.0
@@ -565,6 +610,9 @@ func _swim(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 		vertical = clampf((surface_height - global_position.y) * 4.0, -1.5, 1.5)
 
 	velocity.y = lerpf(velocity.y, vertical, weight)
+	# Don't shoot up out of the water when swimming up to the surface.
+	if global_position.y > surface_height and velocity.y > 0.0:
+		velocity.y = 0.0
 
 
 func _update_run() -> void:
@@ -586,6 +634,12 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	elif serpent:
 		# A Kash faces the way its head is heading (see _steer).
 		_pose.rotation.y = lerp_angle(_pose.rotation.y, _heading, 1.0 - exp(-14.0 * delta))
+	elif is_flying:
+		# Birds swing round in wide, banked curves rather than snapping to a new heading.
+		var flat := Vector3(velocity.x, 0.0, velocity.z)
+		if flat.length() > 0.4:
+			var goal_yaw := atan2(-flat.x, -flat.z)
+			_pose.rotation.y = lerp_angle(_pose.rotation.y, goal_yaw, 1.0 - exp(-4.0 * delta))
 	elif _step_back_left <= 0.0:
 		var flat := Vector3(velocity.x, 0.0, velocity.z)
 		if flat.length() > 0.4:
@@ -612,6 +666,17 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	_pose.rotation.x = lerpf(_pose.rotation.x, goal_tilt, 1.0 - exp(-8.0 * delta))
 	# A strained shudder while heaving.
 	_pose.rotation.z = sin(Time.get_ticks_msec() * 0.045) * 0.04 if is_struggling else 0.0
+
+	# In flight, turn around the chest (where the wings are), not the hips: raise the pivot to
+	# chest height while flying, keeping the body exactly where it is when upright.
+	_flight_pivot = lerpf(_flight_pivot, 1.0 if is_flying else 0.0, 1.0 - exp(-6.0 * delta))
+	var pivot := POSE_PIVOT + FLIGHT_PIVOT_RAISE * _flight_pivot
+	_pose.position.y = pivot
+	_model.position.y = -pivot
+	# ...and roll into turns like a bird: bank along the spine, more the sharper the turn.
+	var goal_bank := clampf(-_turn_rate * 0.8, -0.8, 0.8) if is_flying else 0.0
+	_bank.rotation.y = lerpf(_bank.rotation.y, goal_bank, 1.0 - exp(-5.0 * delta))
+	_model.bank = _bank.rotation.y
 
 
 func _face(toward: Vector3, delta: float) -> void:
