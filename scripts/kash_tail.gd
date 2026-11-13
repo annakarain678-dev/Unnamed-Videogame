@@ -181,24 +181,29 @@ func _update_in_water(delta: float, speed: float, ground_y: float) -> void:
 	var moving := clampf(speed / 5.0, 0.0, 1.0)
 	_wave += delta * (2.4 + speed * 2.2)
 	var hips := anchor.global_position
-	# The tail leaves the hips heading straight back from the body.
-	var out := anchor.global_basis.z.normalized()
+	# Its natural resting shape: leaving the hips heading down, continuing the line of the body,
+	# then curving back until it lies level behind (like a mermaid's tail, not a dangling rope).
+	var down := -anchor.global_basis.y.normalized()
+	var back := anchor.global_basis.z.normalized()
+	# The shape holds firmly at rest; while swimming the tail mostly just trails behind.
+	var hold := lerpf(0.2, 0.04, moving)
 
 	var leader := hips
-	var direction := out
+	var direction := down
 	for i in segment_count:
 		var along := float(i + 1) / float(segment_count)
 		var p := _rope[i]
-		# A gentle droop, stronger toward the tip (less while swimming hard).
-		p.y -= (0.6 + along * 1.2) * (1.0 - moving * 0.6) * delta
 		# Hang exactly one spacing behind the segment ahead.
 		var offset := p - leader
 		if offset.length() < 0.001:
 			offset = direction * 0.01
 		p = leader + offset.normalized() * spacing
+		# Ease toward the resting shape: the first part points down, the rest curves round to back.
+		var preferred := down.slerp(back, clampf(along * 1.8, 0.0, 1.0))
+		p = p.lerp(leader + preferred * spacing, hold)
 		# Stiffness: lean toward carrying straight on from the segment ahead (no sharp hinges).
 		var straight := leader + direction * spacing
-		p = p.lerp(straight, 0.12)
+		p = p.lerp(straight, 0.08)
 		p = leader + (p - leader).normalized() * spacing
 		# It rests on the bottom only where it would otherwise sink into it...
 		p.y = maxf(p.y, _ground_at(p, ground_y) + _radius(i) * 0.8)

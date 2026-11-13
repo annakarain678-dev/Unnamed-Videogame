@@ -69,8 +69,14 @@ const SERPENT_FLOAT_DEPTH := 1.5
 ## In flight the body lies nearly level (but not quite), legs trailing behind; in a dive, head down.
 const FLIGHT_TILT := -1.2
 const DIVE_TILT := -1.85
-## In flight the body pivots this much higher (at the chest, where the wings are) than on foot.
-const FLIGHT_PIVOT_RAISE := 0.5
+## A long dive tips further, toward straight down.
+const STEEP_DIVE_TILT := -2.4
+## In flight the body pivots on the point between the wings (higher, and toward the back, compared
+## with the hips it pivots on when walking).
+const FLIGHT_PIVOT_RAISE := 0.52
+const FLIGHT_PIVOT_BACK := 0.2
+## Flying with S held: slower, but still moving forward.
+const FLY_SLOW_SPEED := 3.0
 ## Letting go of the keys in flight, you keep gliding forward at this speed; a dive goes faster.
 const GLIDE_FORWARD_SPEED := 5.5
 const DIVE_FORWARD_SPEED := 13.0
@@ -256,8 +262,8 @@ func return_home() -> void:
 	global_transform = _home
 	velocity = Vector3.ZERO
 	_pose.rotation = Vector3(0.0, _home_facing, 0.0)
-	_pose.position.y = POSE_PIVOT
-	_model.position.y = -POSE_PIVOT
+	_pose.position = Vector3(0.0, POSE_PIVOT, 0.0)
+	_model.position = Vector3(0.0, -POSE_PIVOT, 0.0)
 	_bank.rotation = Vector3.ZERO
 	_flight_pivot = 0.0
 	_turn_rate = 0.0
@@ -474,19 +480,30 @@ func _update_wings(delta: float, jump: bool) -> void:
 
 
 func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
-	# Flying always carries you forward, the way real flight works: let go of the keys and you
-	# glide on ahead, gently descending, rather than stopping and dropping. Shift tips you into a
-	# steep forward dive.
+	# Steered with the mouse, like the wisp: you always fly the way the camera faces.
+	# Flying always carries you forward, the way real flight works: W flies at full speed, no keys
+	# glides on ahead (gently descending), S slows you down, A/D drift a little to the side.
+	# Shift tips you into a forward dive.
 	var forward := Vector3(-sin(_pose.rotation.y), 0.0, -cos(_pose.rotation.y))
-	var heading := direction.normalized() if direction.length() > 0.1 else forward
-	var speed := FLY_DASH_SPEED if is_dashing else FLY_SPEED
-	if direction.length() <= 0.1:
-		speed = GLIDE_FORWARD_SPEED
-	# The longer the dive, the faster it gets.
+	if camera_rig:
+		forward = Vector3(-sin(camera_rig.yaw), 0.0, -cos(camera_rig.yaw))
+	var throttle := 0.0
+	var drift := 0.0
+	if possessed:
+		throttle = Input.get_axis("move_back", "move_forward")
+		drift = Input.get_axis("move_left", "move_right")
+	var heading := (forward + forward.cross(Vector3.UP) * drift * 0.4).normalized()
+	var speed := GLIDE_FORWARD_SPEED
+	if throttle > 0.1:
+		speed = FLY_DASH_SPEED if is_dashing else FLY_SPEED
+	elif throttle < -0.1:
+		speed = FLY_SLOW_SPEED
+	# The longer the dive, the faster and steeper it gets.
 	_dive_time = _dive_time + delta if dive else 0.0
 	var dive_speed := minf(DIVE_FORWARD_SPEED + DIVE_ACCELERATION * _dive_time, DIVE_TOP_SPEED)
+	var steepness := clampf(_dive_time / 3.0, 0.0, 1.0)
 	if dive:
-		speed = dive_speed
+		speed = dive_speed * lerpf(1.0, 0.45, steepness)
 	var weight := 1.0 - exp(-3.0 * delta)
 	velocity.x = lerpf(velocity.x, heading.x * speed, weight)
 	velocity.z = lerpf(velocity.z, heading.z * speed, weight)
@@ -494,7 +511,7 @@ func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 	# Beat your wings to climb (tiring); otherwise glide gently down; or dive.
 	var vertical := -GLIDE_SINK
 	if dive:
-		vertical = -dive_speed * 0.6
+		vertical = -dive_speed * lerpf(0.6, 1.0, steepness)
 	elif rise and flight_energy > 0.0:
 		vertical = FLAP_CLIMB
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
@@ -653,7 +670,8 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	if _swimming and horizontal_speed > 0.6 and can_swim and not serpent_at_surface:
 		goal_tilt = SWIM_TILT
 	elif is_flying and Input.is_action_pressed("float_down") and possessed:
-		goal_tilt = DIVE_TILT  # Head down into the dive.
+		# Head down into the dive, tipping steeper the longer it goes on.
+		goal_tilt = lerpf(DIVE_TILT, STEEP_DIVE_TILT, clampf(_dive_time / 3.0, 0.0, 1.0))
 	elif is_flying:
 		# Nearly level in flight (not quite), more so the faster you go; more upright when hovering.
 		goal_tilt = lerpf(-0.35, FLIGHT_TILT, clampf(horizontal_speed / FLY_SPEED, 0.0, 1.0))
@@ -671,8 +689,9 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	# chest height while flying, keeping the body exactly where it is when upright.
 	_flight_pivot = lerpf(_flight_pivot, 1.0 if is_flying else 0.0, 1.0 - exp(-6.0 * delta))
 	var pivot := POSE_PIVOT + FLIGHT_PIVOT_RAISE * _flight_pivot
-	_pose.position.y = pivot
-	_model.position.y = -pivot
+	var back := FLIGHT_PIVOT_BACK * _flight_pivot
+	_pose.position = Vector3(0.0, pivot, back)
+	_model.position = Vector3(0.0, -pivot, -back)
 	# ...and roll into turns like a bird: bank along the spine, more the sharper the turn.
 	var goal_bank := clampf(-_turn_rate * 0.8, -0.8, 0.8) if is_flying else 0.0
 	_bank.rotation.y = lerpf(_bank.rotation.y, goal_bank, 1.0 - exp(-5.0 * delta))
