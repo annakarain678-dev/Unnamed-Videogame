@@ -54,8 +54,10 @@ var species := "Human"
 var serpent := false
 var _serpent_tail: KashTail
 var _hips: Node3D
-var _wings: Array[Node3D] = []
+var _wings: Array[Dictionary] = []  # { "shoulder", "elbow", "side" }
 var _wing_flap := 0.0
+## How far the body is tipped forward (set by the body each frame), so the wings can stay level.
+var body_pitch := 0.0
 var _ankle_fins: Array[Dictionary] = []
 var _parts: Array[Dictionary] = []  # { "material": StandardMaterial3D, "alive": Color }
 var _left_leg: Node3D
@@ -176,58 +178,79 @@ func _build_kash(colors: Dictionary) -> void:
 	add_child(_serpent_tail)
 
 
-## A pair of feathered wings from the upper shoulders. Each wing is a short "arm" with long
-## feathers hanging from it. Folded, they lie down the back; spread, they reach out sideways.
+## A pair of feathered wings from the upper shoulders, each with two joints, like a bird's
+## (or a chicken's) wing bones: from the shoulder, the upper wing rises to a bend just above the
+## head; from that bend, the lower wing (with the long flight feathers) folds back down toward the
+## feet. In flight both parts unfold and spread out to the sides.
 func _add_wings(feathers: Color, tips: Color) -> void:
 	for side: float in [-1.0, 1.0]:
-		var wing := _add_pivot(self, Vector3(0.14 * side, 1.52, 0.2))
-		var arm := BoxMesh.new()
-		arm.size = Vector3(1.1, 0.12, 0.1)
-		_add_part(wing, arm, Vector3(0.55 * side, 0.0, 0.0), feathers)
+		var shoulder := _add_pivot(self, Vector3(0.14 * side, 1.52, 0.2))
+		var upper := BoxMesh.new()
+		upper.size = Vector3(0.65, 0.12, 0.1)
+		_add_part(shoulder, upper, Vector3(0.325 * side, 0.0, 0.0), feathers)
+		# Shorter covert feathers along the upper wing.
+		for k in 3:
+			var covert := BoxMesh.new()
+			covert.size = Vector3(0.2, 0.03, 0.35)
+			_add_part(shoulder, covert, Vector3((0.12 + k * 0.2) * side, -0.02, 0.17), feathers)
+
+		var elbow := _add_pivot(shoulder, Vector3(0.65 * side, 0.0, 0.0))
+		var lower := BoxMesh.new()
+		lower.size = Vector3(0.95, 0.1, 0.09)
+		_add_part(elbow, lower, Vector3(0.475 * side, 0.0, 0.0), feathers)
 		# Long flight feathers along the trailing edge, longest near the middle.
 		for k in 6:
-			var length := lerpf(0.55, 0.85, sin(PI * (k + 0.5) / 6.0))
+			var length := lerpf(0.6, 0.9, sin(PI * (k + 0.5) / 6.0))
 			var feather := BoxMesh.new()
-			feather.size = Vector3(0.2, 0.03, length)
-			var x := (0.12 + k * 0.19) * side
-			_add_part(wing, feather, Vector3(x, -0.02, length * 0.5), tips if k % 2 == 1 else feathers)
-		_wings.append(wing)
+			feather.size = Vector3(0.18, 0.03, length)
+			var x := (0.08 + k * 0.17) * side
+			_add_part(elbow, feather, Vector3(x, -0.02, length * 0.5), tips if k % 2 == 1 else feathers)
+		_wings.append({"shoulder": shoulder, "elbow": elbow, "side": side})
 	_set_wings(0.0, 0.0, 1.0)
 
-	# No tail feathers (on purpose). Instead, a small fan of feathers on each side of each ankle,
-	# like a fish's side fins. They lie flat against the leg on the ground, and spread out in flight
-	# to catch the wind and hold the legs up, keeping the body nearly level.
+	# No tail feathers (on purpose). Instead, a small fan of feathers on each side of each ankle.
+	# On the ground they lie flat down the foot. In flight they spread out to either side, like an
+	# airplane's tail fins (or a kite), sweeping a little up the leg, to catch the wind and hold
+	# the legs up, keeping the body nearly level.
 	for leg in [_left_leg, _right_leg]:
 		for side: float in [-1.0, 1.0]:
 			var fin := _add_pivot(leg, Vector3(0.08 * side, -0.74, 0.02))
 			for k in 3:
 				var feather := BoxMesh.new()
-				feather.size = Vector3(0.05, 0.22, 0.015)
+				feather.size = Vector3(0.06, 0.24, 0.015)
 				var fan := _add_pivot(fin, Vector3.ZERO)
-				fan.rotation.x = (k - 1) * 0.35  # Fanned out front-to-back.
-				_add_part(fan, feather, Vector3(0.0, -0.1, 0.0), tips if k == 1 else feathers)
+				fan.rotation.z = (k - 1) * 0.32  # Fanned out flat, like a little wing.
+				_add_part(fan, feather, Vector3(0.0, -0.11, 0.0), tips if k == 1 else feathers)
 			_ankle_fins.append({"pivot": fin, "side": side})
 
 
-## Fayran ankle fins: 0 = lying flat down the leg, 1 = spread out sideways.
+## Fayran ankle fins: 0 = lying flat down the foot; 1 = spread out to the side and a little up the leg.
 func _set_ankle_fins(spread: float, blend: float) -> void:
 	for fin in _ankle_fins:
 		var pivot: Node3D = fin["pivot"]
 		var side: float = fin["side"]
-		pivot.rotation.z = lerpf(pivot.rotation.z, spread * 1.35 * side, blend)
+		pivot.rotation.z = lerpf(pivot.rotation.z, spread * 1.75 * side, blend)
 
 
-## Positions the wings: `spread` 0 = folded down the back, 1 = straight out to the sides;
-## `beat` adds a flap up or down.
+## Positions the wings: `spread` 0 = folded (upper wing up past the head, lower wing folded back
+## down toward the feet), 1 = both parts straight out to the sides. `beat` adds a flap.
+## While spread, the wings stay level with the ground however far the body leans into the flight.
 func _set_wings(spread: float, beat: float, blend: float) -> void:
-	for i in _wings.size():
-		var side := -1.0 if i == 0 else 1.0
-		var wing := _wings[i]
-		# Folded: tipped down and swept back. Spread: level, sideways.
-		var goal_z := lerpf(-1.25, 0.0, spread) * side + beat * side
-		var goal_y := lerpf(0.9, 0.0, spread) * -side
-		wing.rotation.z = lerp_angle(wing.rotation.z, goal_z, blend)
-		wing.rotation.y = lerp_angle(wing.rotation.y, goal_y, blend)
+	for wing in _wings:
+		var side: float = wing["side"]
+		var shoulder: Node3D = wing["shoulder"]
+		var elbow: Node3D = wing["elbow"]
+		# Shoulder: folded, the upper wing points up and a little out, swept back; spread, sideways.
+		var shoulder_z := lerpf(1.25, 0.0, spread) * side + beat * side
+		var shoulder_y := lerpf(-0.45, 0.0, spread) * side
+		# Lean the wing back against the body's tilt, so it stays level in flight.
+		var shoulder_x := -body_pitch * spread
+		# Elbow: folded, the lower wing bends right back down toward the feet; spread, straight out.
+		var elbow_z := lerpf(-2.75, 0.0, spread) * side - beat * 0.35 * side
+		shoulder.rotation.z = lerp_angle(shoulder.rotation.z, shoulder_z, blend)
+		shoulder.rotation.y = lerp_angle(shoulder.rotation.y, shoulder_y, blend)
+		shoulder.rotation.x = lerp_angle(shoulder.rotation.x, shoulder_x, blend)
+		elbow.rotation.z = lerp_angle(elbow.rotation.z, elbow_z, blend)
 
 
 ## Pointed ears on top of the head, and a long tail curling up from the lower back.
@@ -342,11 +365,11 @@ func set_owner_body(body: CollisionObject3D) -> void:
 ## Kash only: moves the serpent tail. `ground_y` is the ground's height under the body;
 ## `on_ground` is false while swimming or in the air. A statue's tail is laid out once and then
 ## stays put.
-func update_serpent_tail(delta: float, speed: float, ground_y: float, on_ground: bool, alive: bool) -> void:
+func update_serpent_tail(delta: float, speed: float, ground_y: float, on_ground: bool, alive: bool, in_water := false) -> void:
 	if _serpent_tail == null:
 		return
 	if alive:
-		_serpent_tail.update(delta, speed, ground_y, on_ground)
+		_serpent_tail.update(delta, speed, ground_y, on_ground and not in_water, in_water)
 	elif not _serpent_tail._laid_out:
 		_serpent_tail.lay_out(ground_y)
 

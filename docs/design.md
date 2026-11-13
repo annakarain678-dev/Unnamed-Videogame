@@ -107,19 +107,21 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ⬜ Weakness: **some puzzle markings are invisible** to them (ones Humans and Kash can see)
 - ⬜ Weakness: eats only meat (later, with hunger)
 
-**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders; they fold down the back like a cloak at rest and spread to fly. ✅ **No tail feathers, on purpose.** Instead, a small fan of feathers on each side of each ankle, like a fish's side fins: flat against the leg on the ground, spread out in flight to catch the wind and hold the legs up.)
+**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders. ✅ **Two-jointed wings**, like a bird's (or a chicken's) wing bones: from the shoulder, the upper wing rises to a bend just above the head; from there, the lower wing with the long flight feathers folds back down toward the feet. In flight both parts unfold out to the sides. ✅ **No tail feathers, on purpose.** Instead, a small fan of feathers on each side of each ankle: flat down the foot on the ground; in flight they spread out to either side like an airplane's tail fins (or a kite), sweeping a little up the leg, to catch the wind and hold the legs up.)
 - ✅ **Flight:** jump, then Space again in mid-air to take off. Hold Space to beat your wings and climb, let go to glide gently down, Shift to dive. You land when you touch the ground. Fast (double-tap W flies faster).
-- ✅ **Flight pose:** nearly level, but not quite; legs trailing straight behind, arms swept back. More upright when hovering.
-- ✅ **Flight energy is the main limit:** climbing tires you fast, gliding slowly; it comes back on the ground. Shown as a bar. One full bar climbs ~75 m, enough to land on the giant trees. (Later this becomes hunger.)
+- ✅ **Flight pose:** nearly level, but not quite, more so the faster you fly; legs trailing straight behind, arms swept back; more upright when hovering. ✅ The **wings stay level with the ground** however far the body leans.
+- ✅ **Flight energy is the main limit:** climbing tires you fast; it comes back fully on the ground. Shown as a bar. One full bar climbs ~75 m, enough to land on the giant trees. (Later this becomes hunger.)
+- ✅ **Gliding low** (below ~40 m), energy slowly comes back (up to 80%, never full while airborne), so you can glide a long way. **Up in the thin air** it doesn't come back.
 - ✅ The **world's height limit** is far up (~120 m above the sea), where the air is too thin to climb
 - ✅ Weakness: **can't swim**: in deep water the wings soak through and you sink (and can drown), and you can't fly again until they dry (~4 s)
 - ⬜ Weakness: **smoke and toxic air** hurt badly
 - ⬜ Weakness: dislikes caves (can't, or won't, go into tight places)
 
 **Sen-Kash** (look: ✅ a human upper body on a long snake tail in jewel tones: emerald and gold bands with ruby accents, tan skin, a gold vest and collar, gold slit eyes. No gills.)
-- ✅ **Slithers** instead of walking: the tail follows the exact path the body took, with an S-shaped wave running down it, like a real snake. It **always keeps its full length** (it never bunches up when you stop or turn). Jumps only a little.
-- ✅ **Slithers up steep slopes and steps** that walkers have to jump (up to ~70°); the tail lies along the ground over steps and ledges
-- ✅ Swims (moderately)
+- ✅ **Slithers** instead of walking: the body draws a line and the tail follows it, pulled a little taut like a string (corners and loops tighten slightly), with an S-shaped wave running down it. It **always keeps its full length**, and goes around rocks the body went around rather than hopping over them. Jumps only a little.
+- ✅ **Turns in arcs:** the head swings round at a limited rate, so turning around is a **U-turn** (the front curves back past the tail) rather than spinning on the spot. (Both Kash.)
+- ✅ **Slithers up steep slopes and steps** that walkers have to jump (up to ~70°); the tail lies along the ground over steps and ledges, and drops quickly going downhill
+- ✅ Swims (moderately). **At the surface, swims upright**, driven by the tail like slithering, with only the shoulders and head out of the water; stretches out flat only when diving. **In water, the tail floats free**, gently waving, resting on the bottom only where it actually touches. (Both Kash.)
 - ⬜ **Survives heat** that hurts everyone else
 - ⬜ **Soul-sight:** sees an aura of light or shadow on people (and possessed things)
 - ⬜ **Sees math and shape puzzles** others can't

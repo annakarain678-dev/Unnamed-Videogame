@@ -96,16 +96,16 @@ func lay_out(ground_y: float) -> void:
 
 
 ## Call every frame while alive. `speed` is how fast the body moves; `ground_y` is the height of
-## the ground under it; `on_ground` is false while swimming or in the air.
-func update(delta: float, speed: float, ground_y: float, on_ground: bool) -> void:
+## the ground under it; `on_ground` is true on land (the tail lies along the ground); `in_water`
+## makes the tail float freely, waving, only resting on the bottom where it actually touches.
+func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_water := false) -> void:
 	if not _laid_out:
 		lay_out(ground_y)
 		return
 	_time += delta
 
-	# The tail follows the exact path the hips have taken. Only real movement is recorded, so
-	# standing still or turning on the spot never bunches the tail up: it always keeps its full
-	# length, lying where the body has been.
+	# The tail follows the line the hips have drawn. Only real movement is recorded, so standing
+	# still never bunches the tail up: it always keeps its full length, lying where the body has been.
 	var hips := anchor.global_position
 	if hips.distance_to(_path[0]) > 0.06:
 		_path.insert(0, hips)
@@ -113,14 +113,25 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool) -> voi
 	else:
 		_path[0] = hips
 
+	# Points along that line...
+	var bases := PackedVector3Array()
+	for i in segment_count:
+		bases.append(_point_along_path(spacing * (i + 1)))
+	# ...pulled a little taut, like a string: sharp corners and tight loops ease out a bit.
+	for pass_count in 2:
+		for i in range(1, segment_count - 1):
+			var middle := (bases[i - 1] + bases[i + 1]) * 0.5
+			bases[i] = bases[i].lerp(middle, 0.3)
+
 	# The slither: a side-to-side wave that runs down the tail, bigger and quicker when moving.
+	# In water it never stops entirely: the tail keeps gently waving.
 	var moving := clampf(speed / 5.0, 0.0, 1.0)
-	var sway := 0.03 + moving * 0.3
-	_wave += delta * (1.8 + speed * 2.2)
+	var sway := (0.08 if in_water else 0.03) + moving * 0.3
+	_wave += delta * ((2.4 if in_water else 1.8) + speed * 2.2)
 
 	var ahead := hips
 	for i in segment_count:
-		var base := _point_along_path(spacing * (i + 1))
+		var base := bases[i]
 		var along := base - ahead
 		along.y = 0.0
 		var side := along.cross(Vector3.UP).normalized() if along.length() > 0.001 else Vector3.ZERO
@@ -128,10 +139,15 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool) -> voi
 		var reach := clampf((i + 1) / 4.0, 0.0, 1.0)
 		var point := base + side * sin(_wave - i * 0.55) * sway * reach
 		ahead = base
-		# On land, the tail lies along whatever ground is under it (slopes, steps, ledges).
-		if on_ground:
-			var rest := _ground_at(point, ground_y) + _radius(i) * 0.8
-			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-14.0 * delta))
+		var rest := _ground_at(point, ground_y) + _radius(i) * 0.8
+		if in_water:
+			# Floating free; it only rests on the bottom where it would otherwise sink into it.
+			point.y = maxf(point.y, rest)
+		elif on_ground:
+			# On land, the tail lies along the ground (slopes, steps, ledges). Going downhill it
+			# drops quickly rather than hanging in the air.
+			var speed_down := 30.0 if _points[i].y > rest else 14.0
+			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-speed_down * delta))
 			point.y = maxf(point.y, rest - 0.05)
 		_points[i] = point
 	_place_segments()
@@ -184,7 +200,9 @@ func _ground_at(point: Vector3, fallback: float) -> float:
 	var space := get_world_3d().direct_space_state if is_inside_tree() else null
 	if space == null:
 		return fallback
-	var ray := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 0.8, point + Vector3.DOWN * 3.0)
+	# Look only a little above the tail, so it goes around rocks and boulders the body went around,
+	# rather than hopping up on top of them.
+	var ray := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 0.35, point + Vector3.DOWN * 3.0)
 	ray.collision_mask = Layers.WORLD | Layers.THIN
 	if exclude:
 		ray.exclude = [exclude.get_rid()]

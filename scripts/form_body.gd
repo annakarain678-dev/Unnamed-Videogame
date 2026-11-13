@@ -57,6 +57,14 @@ const FLIGHT_CEILING := 120.0
 ## on the ground. (Later this becomes hunger.) Enough to climb well above the giant trees.
 const FLAP_COST := 6.0
 const GLIDE_COST := 2.0
+## Gliding low (below the thin air), energy slowly comes back, so a Fayran can glide a long way.
+## Up in the thin air it doesn't.
+const GLIDE_RECOVERY := 3.0
+const THIN_AIR := 40.0
+## Kash: how fast the head can swing round (radians per second). Sets how tight a U-turn is.
+const SERPENT_TURN_RATE := 3.5
+## Kash float lower than walkers at the surface: just the shoulders and head out of the water.
+const SERPENT_FLOAT_DEPTH := 1.5
 ## In flight the body lies nearly level (but not quite), legs trailing behind.
 const FLIGHT_TILT := -1.2
 
@@ -141,6 +149,10 @@ var _soaked_left := 0.0
 ## Where the statue started (its plinth), to return to after drowning or shattering.
 var _home := Transform3D.IDENTITY
 var _home_facing := 0.0
+## Kash only: which way the head is heading. It turns toward where you want to go at a limited
+## rate, so a Kash curves around in an arc (a U-turn) rather than spinning on the spot.
+var _heading := 0.0
+var serpent := false
 ## While an empty statue is falling: the height it started falling from.
 var _fall_from := NAN
 
@@ -165,10 +177,12 @@ func _ready() -> void:
 	max_breath = INF if has_gills else BREATH.get(species, 15.0)
 	breath = max_breath
 	# Kash slither up steep slopes and steps that walkers can't.
-	if species == "Sen-Kash" or species == "Qoi-Kash":
+	serpent = species == "Sen-Kash" or species == "Qoi-Kash"
+	if serpent:
 		floor_max_angle = deg_to_rad(70.0)
 	_home = global_transform
 	_home_facing = deg_to_rad(facing_degrees)
+	_heading = _home_facing
 
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.32
@@ -218,6 +232,7 @@ func return_home() -> void:
 	global_transform = _home
 	velocity = Vector3.ZERO
 	_pose.rotation = Vector3(0.0, _home_facing, 0.0)
+	_heading = _home_facing
 	_swimming = false
 	is_flying = false
 	breath = max_breath
@@ -290,6 +305,8 @@ func _physics_process(delta: float) -> void:
 	_update_actions(delta)
 	_update_swimming()
 	_update_wings(delta, jump)
+	if serpent:
+		direction = _steer(direction, delta)
 
 	# An empty statue that has come to rest stays exactly where it is, so you can always find it
 	# again, and nothing (like a rolling boulder) can shove it around. An empty statue left in
@@ -333,8 +350,26 @@ func _physics_process(delta: float) -> void:
 	var standing := is_on_floor() or _settled
 	# A body that can't swim just flails (treads water) rather than doing a swimming stroke.
 	var stroke_speed := horizontal_speed if can_swim or not _swimming else 0.0
+	_model.body_pitch = _pose.rotation.x
 	_model.animate(stroke_speed, _swimming, standing, delta, possessed, turn_rate)
-	_model.update_serpent_tail(delta, horizontal_speed, global_position.y, standing, possessed)
+	_model.update_serpent_tail(delta, horizontal_speed, global_position.y, standing, possessed, _swimming)
+
+
+## Kash: the head swings round toward where you want to go at a limited rate, and the body always
+## moves the way the head points. So turning around is a U-turn: the front curves round and heads
+## back past the tail, and the tail follows the arc.
+func _steer(wanted: Vector3, delta: float) -> Vector3:
+	if wanted.length() < 0.1 or is_busy():
+		return wanted
+	var goal := atan2(-wanted.x, -wanted.z)
+	_heading = rotate_toward(_heading, goal, SERPENT_TURN_RATE * delta)
+	return Vector3(-sin(_heading), 0.0, -cos(_heading)) * wanted.length()
+
+
+## How deep the body floats at the surface: walkers float with their chest at the surface; Kash
+## sink lower, with only the shoulders and head out.
+func _float_height() -> float:
+	return sea_level - (SERPENT_FLOAT_DEPTH if serpent else CHEST + 0.05)
 
 
 func _report_lost(reason: String) -> void:
@@ -347,8 +382,7 @@ func _report_lost(reason: String) -> void:
 func _update_breath(delta: float) -> void:
 	if not possessed or is_inf(max_breath):
 		return
-	var surface_height := sea_level - CHEST - 0.05
-	var head_under := _swimming and global_position.y < surface_height - 0.25
+	var head_under := _swimming and global_position.y < _float_height() - 0.25
 	if head_under:
 		breath = maxf(0.0, breath - delta)
 		if breath <= 0.0:
@@ -388,8 +422,10 @@ func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 	elif rise and flight_energy > 0.0:
 		vertical = FLAP_CLIMB
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
-	else:
-		flight_energy = maxf(0.0, flight_energy - GLIDE_COST * delta)
+	elif global_position.y < sea_level + THIN_AIR:
+		# Gliding low, energy slowly comes back (but never fully while airborne).
+		flight_energy = minf(80.0, flight_energy + GLIDE_RECOVERY * delta)
+	# (Gliding up in the thin air, it neither drains nor comes back.)
 
 	# Too high, and the air is too thin to climb any further.
 	at_ceiling = global_position.y >= sea_level + FLIGHT_CEILING
@@ -483,7 +519,7 @@ func _swim(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
 		vertical = swim_vertical_speed
 
 	# At the surface you float there, and can't swim up out of the water.
-	var surface_height := sea_level - CHEST - 0.05
+	var surface_height := _float_height()
 	if global_position.y > surface_height - 0.1 and not dive:
 		vertical = clampf((surface_height - global_position.y) * 4.0, -1.5, 1.5)
 
@@ -505,13 +541,21 @@ func _update_run() -> void:
 func _update_pose(delta: float, horizontal_speed: float) -> void:
 	if _shove_left > 0.0 or _struggle_left > 0.0:
 		_face(_shove_direction, delta)
+		_heading = _pose.rotation.y
+	elif serpent:
+		# A Kash faces the way its head is heading (see _steer).
+		_pose.rotation.y = lerp_angle(_pose.rotation.y, _heading, 1.0 - exp(-14.0 * delta))
 	elif _step_back_left <= 0.0:
 		var flat := Vector3(velocity.x, 0.0, velocity.z)
 		if flat.length() > 0.4:
 			_face(flat, delta)
 
+	# Kash swim upright at the surface, driven by their tails like they slither on land; they only
+	# stretch out flat once they dive below it.
+	var serpent_at_surface := serpent and global_position.y > _float_height() - 0.4
+
 	var goal_tilt := 0.0
-	if _swimming and horizontal_speed > 0.6 and can_swim:
+	if _swimming and horizontal_speed > 0.6 and can_swim and not serpent_at_surface:
 		goal_tilt = SWIM_TILT
 	elif is_flying:
 		# Nearly level in flight (not quite), more so the faster you go; more upright when hovering.
