@@ -31,7 +31,7 @@ Sources are third-party guides, so check the official Steamworks docs (partner.s
 
 ## 2. How Outer Wilds links its places
 
-The web search didn't find a clean clue map, so this is **from memory of the game** and should be double-checked.
+The web search didn't find a clean clue map, so the patterns below start from memory. Section 2b checks them against the real ship log graph on outerwilds.ventures.
 
 **Patterns**
 - **Every place is entered by a clue from somewhere else** (a ship log rumor, a Nomai message, a signal or a visible oddity). Almost nothing is gated by items.
@@ -49,6 +49,26 @@ The web search didn't find a clean clue map, so this is **from memory of the gam
 Giant's Deep astronaut ──► satellite-parts island ──► orbiting space station
                                        └────────────► sunken piece at the planet's centre (jellyfish puzzle)
 ```
+
+## 2b. What the real ship log graph shows
+
+Source: the interactive ship log at outerwilds.ventures. I counted its nodes and links by script, and matched each link to its nearest card, so the figures are approximate.
+
+- **About 90 cards and 73 links.** Each card is a place or a discovery, and each link is a "rumour" that the log shows between two places.
+- **Average of 2.06 links per card.** The spread: 26 cards have 1 link (37%), 23 have 2, 14 have 3, and 8 have 4. **No card has more than 4.**
+- **The busiest cards are places like the Ash Twin Project, the Hanging City, the Sunless City, the Orbital Probe Cannon's neighbours and Escape Pod 2.** None is a giant central hub. The web is wide, not a star.
+- **Six colour-coded story threads** group the cards: the Orbital Cannon and the Eye, the Quantum Moon, the Vessel and Nomai arrival, the Ash Twin Project, the Stranger, and a miscellaneous thread (the Interloper and the fate of the Nomai). Most links stay inside one thread, and a few cross between them.
+- **Each card holds 1 to 6 log entries.** The number is shown on the card, so you know how much is left to find there.
+- **A link can be found from either end.** The guide says links "may be found at either side", so a clue can come from either place.
+- **The big places have sub-places.** The Orbital Probe Cannon branches into the Construction Yard, Gabbro's Island and the Southern Observatory. The Ash Twin Project branches into the Nomai Mines, High Energy Lab, Statue Workshop and Black Hole Forge. Each big place is a small cluster, not one room.
+- **Some clusters sit apart.** The Stranger forms its own large cluster, and the Quantum Moon is a separate cluster from the rest.
+
+**What this means for our journal and puzzles**
+- Aim for about 2 links per place, with a maximum of 4.
+- A third of the places should be one-link endings.
+- Build 5 or 6 threads (one per species, or one per theme) and let a few links cross between them.
+- Show the player the unfinished links, and a count of how many entries remain at each place.
+- Let a clue be found at either end of a link.
 
 ## 3. Rules for our puzzle web
 
