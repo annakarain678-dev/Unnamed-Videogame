@@ -17,6 +17,7 @@ var current_body: FormBody = null
 var in_heart := false
 
 var _prompt: Label
+var _energy: ProgressBar
 
 @onready var _wisp: Wisp = get_node(wisp_path)
 @onready var _rig: CameraRig = get_node(camera_rig_path)
@@ -56,6 +57,14 @@ func _process(_delta: float) -> void:
 	elif current_body:
 		if current_body.is_struggling:
 			_prompt.text = "Too heavy for a %s" % current_body.species
+		elif current_body.can_fly and current_body.in_deep_water:
+			_prompt.text = "Your wings are soaked: you can't swim!"
+		elif current_body.at_ceiling:
+			_prompt.text = "The air is too thin to fly any higher"
+		elif current_body.can_fly and current_body.wings_soaked:
+			_prompt.text = "Your wings are still drying"
+		elif current_body.can_fly and not current_body.is_flying and not current_body.is_on_floor():
+			_prompt.text = "Space  ·  Spread your wings and fly"
 		elif current_body.nearby_boulder() and not current_body.is_busy():
 			_prompt.text = "Right Mouse  ·  Push the boulder"
 		else:
@@ -69,6 +78,12 @@ func _process(_delta: float) -> void:
 		else:
 			_prompt.text = "%s  ·  Enter the %s statue" % [key, statue.species]
 	_prompt.visible = _prompt.text != ""
+
+	# The Fayran's flight energy, shown while it isn't full.
+	var flier := current_body != null and current_body.can_fly and not in_heart
+	_energy.visible = flier and current_body.flight_energy < 99.5
+	if flier:
+		_energy.value = current_body.flight_energy
 
 
 func _enter_body(body: FormBody) -> void:
@@ -131,3 +146,22 @@ func _build_prompt() -> void:
 	_prompt.offset_bottom = -50.0
 	_prompt.visible = false
 	layer.add_child(_prompt)
+
+	# A slim bar for a Fayran's flight energy, just above the prompt.
+	_energy = ProgressBar.new()
+	_energy.show_percentage = false
+	_energy.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_energy.offset_left = -110.0
+	_energy.offset_right = 110.0
+	_energy.offset_top = -112.0
+	_energy.offset_bottom = -102.0
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.98, 0.94, 0.80)
+	fill.set_corner_radius_all(4)
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.0, 0.0, 0.0, 0.45)
+	back.set_corner_radius_all(4)
+	_energy.add_theme_stylebox_override("fill", fill)
+	_energy.add_theme_stylebox_override("background", back)
+	_energy.visible = false
+	layer.add_child(_energy)

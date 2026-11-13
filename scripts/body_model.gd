@@ -3,12 +3,16 @@ extends Node3D
 ## A simple low-poly "pill person" built from basic shapes, for any species.
 ## - Human: the plain version.
 ## - Tar'ye: a little bigger, with fur, cat ears and a swishing tail.
+## - Fayran: a Human with a pair of feathered wings from the upper shoulders.
+## - Sen-Kash: a human upper body on a long snake tail, in jewel tones (green, gold, red, tan).
+## - Qoi-Kash: a human upper body on a dark eel tail, with a dorsal fin down the back to the tip
+##   and gills on the sides of the torso. Shark-like skin rather than scales.
 ## Can look like grey stone (a statue) or alive (colored), and animates as it moves.
 ## Faces -Z (Godot's "forward"). About 1.85 m tall (Tar'ye a little taller).
 
 const STONE := Color(0.63, 0.62, 0.59)
 
-## Colors for each species: skin/fur, top, trousers, eyes.
+## Colors for each species: skin/fur, top, trousers, eyes (and, for Kash, the tail's bands).
 const PALETTES := {
 	"Human": {
 		"skin": Color(0.86, 0.68, 0.54), "top": Color(0.38, 0.50, 0.64),
@@ -18,13 +22,40 @@ const PALETTES := {
 		"skin": Color(0.82, 0.58, 0.32), "top": Color(0.50, 0.25, 0.20),
 		"trousers": Color(0.30, 0.24, 0.18), "eyes": Color(0.55, 0.65, 0.12),
 	},
+	"Fayran": {
+		"skin": Color(0.90, 0.74, 0.62), "top": Color(0.88, 0.84, 0.74),
+		"trousers": Color(0.62, 0.56, 0.48), "eyes": Color(0.25, 0.35, 0.55),
+		"feathers": Color(0.96, 0.95, 0.91), "feather_tips": Color(0.80, 0.78, 0.74),
+	},
+	"Sen-Kash": {
+		"skin": Color(0.78, 0.62, 0.42), "top": Color(0.80, 0.62, 0.20),
+		"eyes": Color(0.85, 0.65, 0.10),
+		# Jewel-toned scale bands: emerald, gold, emerald, ruby...
+		"bands": [Color(0.16, 0.45, 0.30), Color(0.78, 0.60, 0.22), Color(0.16, 0.45, 0.30),
+			Color(0.20, 0.52, 0.34), Color(0.62, 0.16, 0.14), Color(0.16, 0.45, 0.30)],
+	},
+	"Qoi-Kash": {
+		"skin": Color(0.22, 0.27, 0.32), "top": Color(0.18, 0.22, 0.27),
+		"eyes": Color(0.82, 0.88, 0.92), "fin": Color(0.10, 0.13, 0.17),
+		"gills": Color(0.45, 0.12, 0.14),
+		# Shark-like: dark slate, a shade lighter in places.
+		"bands": [Color(0.20, 0.24, 0.29), Color(0.22, 0.27, 0.32)],
+	},
 }
 
 ## What the body is doing, set by its owner: "" (normal), "push" (shoving something heavy),
 ## or "struggle" (trying to lift something too heavy).
 var pose := ""
+## Fayran only: "folded" (at rest), "flap" (flying upward), or "glide" (wings spread).
+var wing_mode := "folded"
 
 var species := "Human"
+## True for the Kash, who have a serpent tail instead of legs.
+var serpent := false
+var _serpent_tail: KashTail
+var _hips: Node3D
+var _wings: Array[Node3D] = []
+var _wing_flap := 0.0
 var _parts: Array[Dictionary] = []  # { "material": StandardMaterial3D, "alive": Color }
 var _left_leg: Node3D
 var _right_leg: Node3D
@@ -40,6 +71,10 @@ var _time := 0.0
 func _init(species_name := "Human") -> void:
 	species = species_name
 	var colors: Dictionary = PALETTES.get(species, PALETTES["Human"])
+	if species == "Sen-Kash" or species == "Qoi-Kash":
+		serpent = true
+		_build_kash(colors)
+		return
 
 	# Body and head.
 	_add_part(self, _capsule(0.26, 0.80), Vector3(0.0, 1.18, 0.0), colors["top"])
@@ -64,6 +99,112 @@ func _init(species_name := "Human") -> void:
 	if species == "Tar'ye":
 		_add_cat_features(colors["skin"])
 		scale = Vector3.ONE * 1.08
+	elif species == "Fayran":
+		_add_wings(colors["feathers"], colors["feather_tips"])
+
+
+## A Kash: a human upper body rising from a serpent tail. The upper body sits a little higher than
+## a Human's, and the tail starts at the hips and drags along the ground behind.
+func _build_kash(colors: Dictionary) -> void:
+	var bands: Array = colors["bands"]
+	var eel := species == "Qoi-Kash"
+
+	# Where body meets tail: a rounded hip, in the tail's first color.
+	_hips = _add_pivot(self, Vector3(0.0, 0.62, 0.05))
+	_add_part(_hips, _sphere(0.27, 0.5), Vector3.ZERO, bands[0])
+
+	# Upper body, head and arms.
+	_add_part(self, _capsule(0.26, 0.9), Vector3(0.0, 1.15, 0.0), colors["top"])
+	var head := _sphere(0.2, 0.4)
+	_add_part(self, head, Vector3(0.0, 1.78, 0.0), colors["skin"])
+	if eel:
+		# A slightly longer, sleeker head, and a crest that runs into the dorsal fin.
+		(get_child(get_child_count() - 1) as Node3D).scale = Vector3(0.95, 1.0, 1.15)
+		var crest := BoxMesh.new()
+		crest.size = Vector3(0.025, 0.16, 0.34)
+		_add_part(self, crest, Vector3(0.0, 1.94, 0.04), colors["fin"])
+		var back_fin := BoxMesh.new()
+		back_fin.size = Vector3(0.025, 0.22, 0.75)
+		var fin_holder := _add_pivot(self, Vector3(0.0, 1.2, 0.24))
+		fin_holder.rotation.x = -1.35  # Running down the back.
+		_add_part(fin_holder, back_fin, Vector3.ZERO, colors["fin"])
+		# Gills: three slits on each side of the torso.
+		for side in [-1.0, 1.0]:
+			for k in 3:
+				var slit := BoxMesh.new()
+				slit.size = Vector3(0.02, 0.025, 0.16)
+				var slit_holder := _add_pivot(self, Vector3(0.25 * side, 1.38 - k * 0.07, -0.02))
+				slit_holder.rotation.y = 0.15 * side
+				_add_part(slit_holder, slit, Vector3.ZERO, colors["gills"])
+	else:
+		# A gold collar, jewel-bright against the scales.
+		var collar := CylinderMesh.new()
+		collar.top_radius = 0.2
+		collar.bottom_radius = 0.26
+		collar.height = 0.08
+		collar.radial_segments = 12
+		_add_part(self, collar, Vector3(0.0, 1.55, 0.0), Color(0.85, 0.68, 0.22))
+
+	# Eyes: narrow slits, gold for a snake, pale for an eel.
+	for side in [-1.0, 1.0]:
+		var eye := _sphere(0.035, 0.07)
+		_add_part(self, eye, Vector3(0.075 * side, 1.81, -0.18 if not eel else -0.215), colors["eyes"])
+		(get_child(get_child_count() - 1) as Node3D).scale = Vector3(1.0, 0.55, 1.0)
+
+	_left_arm = _add_pivot(self, Vector3(-0.36, 1.5, 0.0))
+	_right_arm = _add_pivot(self, Vector3(0.36, 1.5, 0.0))
+	for arm in [_left_arm, _right_arm]:
+		_add_part(arm, _capsule(0.085, 0.72), Vector3(0.0, -0.32, 0.0), colors["skin"])
+		_add_part(arm, _sphere(0.085, 0.17), Vector3(0.0, -0.66, 0.0), colors["skin"])
+
+	# The tail: Sen-Kash are longer; Qoi-Kash have a fin down to the tip.
+	_serpent_tail = KashTail.new()
+	_serpent_tail.anchor = _hips
+	_serpent_tail.side_reference = self
+	_serpent_tail.segment_count = 18 if not eel else 15
+	_serpent_tail.spacing = 0.22
+	_serpent_tail.radius_start = 0.25
+	_serpent_tail.radius_end = 0.04
+	_serpent_tail.has_fin = eel
+	if eel:
+		_serpent_tail.fin_color = colors["fin"]
+	var tail_colors: Array[Color] = []
+	for band in bands:
+		tail_colors.append(band)
+	_serpent_tail.colors = tail_colors
+	add_child(_serpent_tail)
+
+
+## A pair of feathered wings from the upper shoulders. Each wing is a short "arm" with long
+## feathers hanging from it. Folded, they lie down the back; spread, they reach out sideways.
+func _add_wings(feathers: Color, tips: Color) -> void:
+	for side: float in [-1.0, 1.0]:
+		var wing := _add_pivot(self, Vector3(0.14 * side, 1.52, 0.2))
+		var arm := BoxMesh.new()
+		arm.size = Vector3(1.1, 0.12, 0.1)
+		_add_part(wing, arm, Vector3(0.55 * side, 0.0, 0.0), feathers)
+		# Long flight feathers along the trailing edge, longest near the middle.
+		for k in 6:
+			var length := lerpf(0.55, 0.85, sin(PI * (k + 0.5) / 6.0))
+			var feather := BoxMesh.new()
+			feather.size = Vector3(0.2, 0.03, length)
+			var x := (0.12 + k * 0.19) * side
+			_add_part(wing, feather, Vector3(x, -0.02, length * 0.5), tips if k % 2 == 1 else feathers)
+		_wings.append(wing)
+	_set_wings(0.0, 0.0, 1.0)
+
+
+## Positions the wings: `spread` 0 = folded down the back, 1 = straight out to the sides;
+## `beat` adds a flap up or down.
+func _set_wings(spread: float, beat: float, blend: float) -> void:
+	for i in _wings.size():
+		var side := -1.0 if i == 0 else 1.0
+		var wing := _wings[i]
+		# Folded: tipped down and swept back. Spread: level, sideways.
+		var goal_z := lerpf(-1.25, 0.0, spread) * side + beat * side
+		var goal_y := lerpf(0.9, 0.0, spread) * -side
+		wing.rotation.z = lerp_angle(wing.rotation.z, goal_z, blend)
+		wing.rotation.y = lerp_angle(wing.rotation.y, goal_y, blend)
 
 
 ## Pointed ears on top of the head, and a long tail curling up from the lower back.
@@ -96,7 +237,10 @@ func _add_cat_features(fur: Color) -> void:
 ## Turns the model to stone (a statue) or back to life.
 ## `gloom` (0 to 1) darkens the stone, e.g. when a darkling possesses it.
 func set_stone(stone: bool, gloom := 0.0) -> void:
-	for part in _parts:
+	var all_parts := _parts.duplicate()
+	if _serpent_tail:
+		all_parts.append_array(_serpent_tail.parts)
+	for part in all_parts:
 		var material: StandardMaterial3D = part["material"]
 		material.albedo_color = STONE.darkened(gloom) if stone else part["alive"]
 		material.roughness = 1.0 if stone else 0.8
@@ -108,6 +252,10 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 	_time += delta
 	if alive:
 		_animate_tail(speed, turn_rate, delta)
+		_animate_wings(delta)
+	if serpent:
+		_animate_kash_arms(speed, swimming, delta)
+		return
 	if swimming and speed > 0.6:
 		_animate_crawl(speed, delta)
 		return
@@ -149,6 +297,60 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 	_right_arm.rotation.x = lerpf(_right_arm.rotation.x, right_arm, blend)
 	_left_arm.rotation.z = lerpf(_left_arm.rotation.z, -arm_spread, blend)
 	_right_arm.rotation.z = lerpf(_right_arm.rotation.z, arm_spread, blend)
+
+
+## Kash only: tells the tail which body it belongs to (so it doesn't treat that body as ground).
+func set_owner_body(body: CollisionObject3D) -> void:
+	if _serpent_tail:
+		_serpent_tail.exclude = body
+
+
+## Kash only: moves the serpent tail. `ground_y` is the ground's height under the body;
+## `on_ground` is false while swimming or in the air. A statue's tail is laid out once and then
+## stays put.
+func update_serpent_tail(delta: float, speed: float, ground_y: float, on_ground: bool, alive: bool) -> void:
+	if _serpent_tail == null:
+		return
+	if alive:
+		_serpent_tail.update(delta, speed, ground_y, on_ground)
+	elif not _serpent_tail._laid_out:
+		_serpent_tail.lay_out(ground_y)
+
+
+## Kash arms: they slither rather than walk, so the arms just sway a little for balance,
+## sweep back when swimming, and brace forward for a shove or a heave.
+func _animate_kash_arms(speed: float, swimming: bool, delta: float) -> void:
+	var swing := sin(_time * (1.5 + speed * 1.2)) * clampf(speed / 6.0, 0.0, 1.0) * 0.35
+	var lift := 0.0
+	var spread := 0.15
+	if pose == "struggle":
+		lift = 1.2 + sin(_time * 38.0) * 0.07
+	elif pose == "push":
+		lift = 1.45
+	elif swimming and speed > 0.6:
+		lift = -0.5  # Arms swept back along the body, like a diving eel.
+		spread = 0.05
+		swing = 0.0
+	var blend := 1.0 - exp(-10.0 * delta)
+	_left_arm.rotation.x = lerpf(_left_arm.rotation.x, swing + lift, blend)
+	_right_arm.rotation.x = lerpf(_right_arm.rotation.x, -swing + lift, blend)
+	_left_arm.rotation.z = lerpf(_left_arm.rotation.z, -spread, blend)
+	_right_arm.rotation.z = lerpf(_right_arm.rotation.z, spread, blend)
+
+
+## Fayran wings: folded at rest; spread and gently tilting while gliding; beating while flying up.
+func _animate_wings(delta: float) -> void:
+	if _wings.is_empty():
+		return
+	var blend := 1.0 - exp(-8.0 * delta)
+	match wing_mode:
+		"flap":
+			_wing_flap += delta * 9.0
+			_set_wings(1.0, sin(_wing_flap) * 0.65, 1.0 - exp(-20.0 * delta))
+		"glide":
+			_set_wings(1.0, sin(_time * 1.3) * 0.06, blend)
+		_:
+			_set_wings(0.0, 0.0, blend)
 
 
 ## The tail swishes side to side in a wave that travels down to the tip, with an extra

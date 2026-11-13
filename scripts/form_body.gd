@@ -9,6 +9,15 @@ extends CharacterBody3D
 ## Heavy boulders: stand next to one and press Right Mouse to push it.
 ## A strong body (Tar'ye) braces and shoves it a couple of meters.
 ## A weaker body (Human) tries to heave it, struggles for a moment, then gives up and steps back.
+##
+## Fayran fly: jump, then press Space again in mid-air to take off. Hold Space to beat your wings
+## and climb (it tires you out), let go to glide slowly down, hold Shift to dive. You land when you
+## touch the ground. The air is too thin to climb past a ceiling. Fayran can't swim: in deep water
+## their wings soak through and they sink, and they can't fly again until their wings dry off.
+##
+## Kash (Sen-Kash and Qoi-Kash) slither on a serpent tail instead of walking, and jump only a little.
+## Qoi-Kash are slow on land, but have gills: in water they're fast and can stay under as long as
+## they like.
 
 ## Which species this statue is. Sets its look and abilities (see SPECIES below).
 @export var species := "Human"
@@ -25,11 +34,31 @@ extends CharacterBody3D
 @export var camera_height := 1.5
 @export var double_tap_window := 0.35
 
-## Each species' abilities. `strong` bodies can shove heavy boulders.
+## Each species' abilities. `strong` bodies can shove heavy boulders; `fly` bodies can take off;
+## bodies that can't `swim` sink in deep water; `gills` bodies are at home underwater.
 const SPECIES := {
 	"Human": {"walk": 4.5, "run": 7.0, "jump": 1.1, "swim": 2.6, "strong": false},
 	"Tar'ye": {"walk": 5.0, "run": 8.5, "jump": 1.5, "swim": 2.0, "strong": true},
+	"Fayran": {"walk": 4.6, "run": 7.2, "jump": 1.2, "swim": 0.0, "fly": true},
+	"Sen-Kash": {"walk": 4.0, "run": 6.5, "jump": 0.6, "swim": 3.2},
+	"Qoi-Kash": {"walk": 3.0, "run": 4.2, "jump": 0.5, "swim": 5.5, "gills": true},
 }
+
+## Flight (Fayran).
+const FLY_SPEED := 8.5
+const FLY_DASH_SPEED := 12.0
+const FLAP_CLIMB := 4.0
+const GLIDE_SINK := 1.2
+const DIVE_SPEED := 7.0
+## How high above the sea a Fayran can climb before the air is too thin.
+const FLIGHT_CEILING := 30.0
+## Flight energy (0-100): beating your wings to climb uses it fast, gliding slowly; it comes back
+## on the ground. (Later this becomes hunger.)
+const FLAP_COST := 10.0
+const GLIDE_COST := 2.5
+const REST_RECOVERY := 35.0
+## How long soaked wings take to dry after leaving deep water.
+const SOAKED_TIME := 4.0
 
 ## Chest height above the feet. When the chest goes under water, the body swims.
 const CHEST := 1.2
@@ -65,6 +94,19 @@ var walk_speed := 4.5
 var run_speed := 7.0
 var swim_speed := 2.6
 var strong := false
+var can_fly := false
+var can_swim := true
+var has_gills := false
+
+## Fayran: flying right now; flight energy (0-100); bumping the thin-air ceiling; wings soaked.
+var is_flying := false
+var flight_energy := 100.0
+var at_ceiling := false
+var wings_soaked := false
+## True while in water too deep to stand in (swimming, or for a Fayran, sinking).
+var in_deep_water: bool:
+	get:
+		return _swimming
 
 var _pose: Node3D
 var _model: BodyModel
@@ -79,6 +121,7 @@ var _struggle_left := 0.0
 var _step_back_left := 0.0
 ## True once an empty statue has come to rest. It then stays put until entered.
 var _settled := false
+var _soaked_left := 0.0
 
 
 func _ready() -> void:
@@ -92,7 +135,12 @@ func _ready() -> void:
 	run_speed = stats["run"]
 	jump_height = stats["jump"]
 	swim_speed = stats["swim"]
-	strong = stats["strong"]
+	strong = stats.get("strong", false)
+	can_fly = stats.get("fly", false)
+	can_swim = swim_speed > 0.0
+	has_gills = stats.get("gills", false)
+	if has_gills:
+		swim_vertical_speed = 3.5
 
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.32
@@ -111,6 +159,7 @@ func _ready() -> void:
 	_model = BodyModel.new(species)
 	_model.position.y = -POSE_PIVOT
 	_pose.add_child(_model)
+	_model.set_owner_body(self)
 	_model.set_stone(true)
 
 
@@ -126,6 +175,7 @@ func possess(rig: CameraRig) -> void:
 func release() -> void:
 	possessed = false
 	is_dashing = false
+	is_flying = false
 	_swimming = false
 	_shove_left = 0.0
 	_struggle_left = 0.0
@@ -180,6 +230,7 @@ func _physics_process(delta: float) -> void:
 	var rise := false
 	var dive := false
 
+	at_ceiling = false
 	if possessed and not is_busy():
 		_update_run()
 		var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -193,6 +244,7 @@ func _physics_process(delta: float) -> void:
 
 	_update_actions(delta)
 	_update_swimming()
+	_update_wings(delta, jump)
 
 	# An empty statue that has come to rest stays exactly where it is, so you can always find it
 	# again, and nothing (like a rolling boulder) can shove it around. An empty statue left in
@@ -200,20 +252,83 @@ func _physics_process(delta: float) -> void:
 	if _settled:
 		velocity = Vector3.ZERO
 	else:
-		if _swimming:
+		if _swimming and can_swim:
 			_swim(delta, direction, rise, dive)
+		elif _swimming:
+			_sink(delta, direction)
+		elif is_flying:
+			_fly(delta, direction, rise, dive)
 		else:
 			_walk(delta, direction, jump)
 		move_and_slide()
 		if not possessed and is_on_floor():
 			_settled = true
+		if is_flying and is_on_floor():
+			is_flying = false  # Landed.
 
 	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
 	var yaw_before := _pose.rotation.y
 	_update_pose(delta, horizontal_speed)
 	var turn_rate := angle_difference(yaw_before, _pose.rotation.y) / delta
 	_model.pose = "struggle" if is_struggling else ("push" if _shove_left > 0.0 else "")
-	_model.animate(horizontal_speed, _swimming, is_on_floor() or _settled, delta, possessed, turn_rate)
+	if is_flying:
+		_model.wing_mode = "flap" if rise and flight_energy > 0.0 else "glide"
+	else:
+		_model.wing_mode = "folded"
+	var standing := is_on_floor() or _settled
+	# A body that can't swim just flails (treads water) rather than doing a swimming stroke.
+	var stroke_speed := horizontal_speed if can_swim or not _swimming else 0.0
+	_model.animate(stroke_speed, _swimming, standing, delta, possessed, turn_rate)
+	_model.update_serpent_tail(delta, horizontal_speed, global_position.y, standing, possessed)
+
+
+## Fayran: taking off (Space in mid-air), and flight energy coming back on the ground.
+func _update_wings(delta: float, jump: bool) -> void:
+	if not can_fly:
+		return
+	if _swimming:
+		_soaked_left = SOAKED_TIME
+		is_flying = false
+	else:
+		_soaked_left = maxf(0.0, _soaked_left - delta)
+	wings_soaked = _soaked_left > 0.0
+	if is_on_floor() and not is_flying:
+		flight_energy = minf(100.0, flight_energy + REST_RECOVERY * delta)
+	if possessed and jump and not is_on_floor() and not is_flying and not _swimming \
+			and not wings_soaked and flight_energy > 5.0:
+		is_flying = true
+		velocity.y = maxf(velocity.y, 2.0)
+
+
+func _fly(delta: float, direction: Vector3, rise: bool, dive: bool) -> void:
+	var speed := FLY_DASH_SPEED if is_dashing else FLY_SPEED
+	var weight := 1.0 - exp(-3.0 * delta)
+	velocity.x = lerpf(velocity.x, direction.x * speed, weight)
+	velocity.z = lerpf(velocity.z, direction.z * speed, weight)
+
+	# Beat your wings to climb (tiring); otherwise glide gently down; or dive.
+	var vertical := -GLIDE_SINK
+	if dive:
+		vertical = -DIVE_SPEED
+	elif rise and flight_energy > 0.0:
+		vertical = FLAP_CLIMB
+		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
+	else:
+		flight_energy = maxf(0.0, flight_energy - GLIDE_COST * delta)
+
+	# Too high, and the air is too thin to climb any further.
+	at_ceiling = global_position.y >= sea_level + FLIGHT_CEILING
+	if at_ceiling and vertical > 0.0:
+		vertical = 0.0
+	velocity.y = lerpf(velocity.y, vertical, 1.0 - exp(-4.0 * delta))
+
+
+## For bodies that can't swim (Fayran): in deep water they flounder and slowly sink.
+func _sink(delta: float, direction: Vector3) -> void:
+	var weight := 1.0 - exp(-3.0 * delta)
+	velocity.x = lerpf(velocity.x, direction.x * 1.0, weight)
+	velocity.z = lerpf(velocity.z, direction.z * 1.0, weight)
+	velocity.y = lerpf(velocity.y, -1.4, weight)
 
 
 ## Push the boulder in front of you: a strong body shoves it; a weak one struggles.
@@ -321,8 +436,11 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 			_face(flat, delta)
 
 	var goal_tilt := 0.0
-	if _swimming and horizontal_speed > 0.6:
+	if _swimming and horizontal_speed > 0.6 and can_swim:
 		goal_tilt = SWIM_TILT
+	elif is_flying:
+		# Leaning into the flight, more the faster you go.
+		goal_tilt = -clampf(horizontal_speed / FLY_DASH_SPEED, 0.0, 1.0) * 0.9
 	elif _struggle_left > 0.0:
 		goal_tilt = EFFORT_TILT
 	elif _shove_left > 0.0:

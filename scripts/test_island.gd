@@ -238,6 +238,10 @@ func _build_statues() -> void:
 	# Only the Tar'ye is strong enough to push it.
 	_build_statue(Vector3(4.0, 0.6, 57.0), 180.0)
 	_build_statue(Vector3(-4.0, 0.6, 57.0), 180.0, "Tar'ye")
+	# Further along the beach: a Sen-Kash and a Fayran, and a Qoi-Kash down by the water's edge.
+	_build_statue(Vector3(12.0, 0.6, 57.0), 180.0, "Sen-Kash")
+	_build_statue(Vector3(20.0, 0.6, 55.0), 200.0, "Fayran")
+	_build_statue(Vector3(-12.0, 0.6, 59.5), 160.0, "Qoi-Kash")
 	_add_boulder(Vector3(0.0, 0.6 + 1.15, 58.0), 1.3)
 	_add_boulder(Vector3(9.0, ISLAND_TOP + 1.4, 46.0), 1.6)
 

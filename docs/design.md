@@ -104,24 +104,29 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ⬜ Weakness: **some puzzle markings are invisible** to them (ones Humans and Kash can see)
 - ⬜ Weakness: eats only meat (later, with hunger)
 
-**Fayran**
-- ⬜ **Flight**, using up hunger; fast; reaches high places
-- ⬜ Weakness: **flight ceiling** (thin air)
-- ⬜ Weakness: **drowns in deep water** (wings soak through)
+**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders; they fold down the back like a cloak at rest and spread to fly)
+- ✅ **Flight:** jump, then Space again in mid-air to take off. Hold Space to beat your wings and climb, let go to glide gently down, Shift to dive. You land when you touch the ground. Fast (double-tap W flies faster).
+- ✅ **Flight energy:** climbing tires you fast, gliding slowly; it comes back on the ground. Shown as a bar. (Later this becomes hunger.)
+- ✅ Weakness: **flight ceiling** at ~30 m above the sea (thin air)
+- ✅ Weakness: **can't swim**: in deep water the wings soak through and you sink, and you can't fly again until they dry (~4 s). (Actually drowning comes with the health and breath system.)
 - ⬜ Weakness: **smoke and toxic air** hurt badly
 - ⬜ Weakness: dislikes caves (can't, or won't, go into tight places)
 
-**Sen-Kash**
+**Sen-Kash** (look: ✅ a human upper body on a long snake tail in jewel tones: emerald and gold bands with ruby accents, tan skin, a gold vest and collar, gold slit eyes. No gills.)
+- ✅ **Slithers** instead of walking: the tail follows the body's path in S-curves, like a real snake; jumps only a little
+- ✅ Swims (moderately)
 - ⬜ **Survives heat** that hurts everyone else
 - ⬜ **Soul-sight:** sees an aura of light or shadow on people (and possessed things)
 - ⬜ **Sees math and shape puzzles** others can't
-- ⬜ Slithers rather than walks; metalworking (later)
+- ⬜ Metalworking (later)
 
-**Qoi-Kash**
+**Qoi-Kash** (look: ✅ eel-like: dark slate shark-like skin rather than scales, a dorsal fin from the back of the head down the back to the tip of the tail, gills on the sides of the torso, a sleeker head, pale eyes. A bit scary-looking, but not evil.)
+- ✅ Slithers (slowly on land); its tail is shorter than a Sen-Kash's
+- ✅ **Gills: at home underwater**: fast swimmer, dives and rises quickly, stays at whatever depth you choose
 - ⬜ **Fits tight crawlspaces**
-- ⬜ **Gills:** swims a long time underwater; **survives toxic air** longer
+- ⬜ **Survives toxic air** longer
 - ⬜ Soul-sight and math puzzles (shared with Sen-Kash)
-- ⬜ Weakness: **can't leave caves or water**; dislikes light
+- ⬜ Weakness: **can't leave caves or water**; dislikes light. (For testing, it can still slither around on land.)
 
 **Shared hazards** (needed for several weaknesses above, so they're built once)
 - ⬜ **Health** (Minecraft-style, with hunger)
@@ -129,7 +134,7 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ⬜ **Heat** zones (Sen-Kash are fine)
 - ⬜ **Smoke and toxic air** (Fayran are hurt most; Qoi-Kash least)
 
-💡 Suggested order: Tar'ye climbing → Fayran flight (with height limit and deep water) → shared hazards (health, breath, heat, smoke) → Human machines and reading → Sen-Kash → Qoi-Kash. Each new species gets a statue on the test island and its own little test spot.
+💡 Suggested order from here: shared hazards (health, breath, heat, smoke) → Tar'ye climbing → Human machines and reading → Kash soul-sight and math puzzles → Qoi-Kash crawlspaces and cave-bound rule. Every species now has a statue on the test island's beach.
 
 ---
 

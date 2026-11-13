@@ -16,7 +16,7 @@ Or just double-click the **Lenhavu** launcher on the Desktop.
 |---|---|---|
 | WASD | Drift | Walk |
 | Double-tap W | Dash | Run |
-| Space | Rise | Jump (swim up in water) |
+| Space | Rise | Jump (swim up in water). Fayran: Space again in mid-air to fly; hold to climb, let go to glide |
 | Shift | Sink | Dive (in water) |
 | Tab | Enter a nearby statue | Leave the body |
 | Left Mouse or F (hold) | Shine: drive darklings away | |
