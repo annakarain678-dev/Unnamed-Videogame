@@ -5,6 +5,8 @@ extends Node3D
 const SEED := 2026
 const ISLAND_TOP := 1.5
 const SEA_LEVEL := 0.0
+## Where the stone-weight puzzle (hut, gate and pressure plate) stands.
+const WEIGHT_PUZZLE := Vector3(-22.0, ISLAND_TOP, 38.0)
 
 const GRASS := Color(0.42, 0.56, 0.30)
 const SAND := Color(0.86, 0.78, 0.58)
@@ -26,7 +28,54 @@ func _ready() -> void:
 	_build_giant_trees()
 	_build_rocks()
 	_build_statues()
+	_build_weight_puzzle()
 	_build_controls_hint()
+
+
+# --- Stone-weight puzzle -----------------------------------------------------
+
+## A small stone hut with a spirit shrine inside, shut by a gate. A pressure plate in front opens
+## the gate while something heavy rests on it: a body (alive or stone) or a boulder.
+## The wisp weighs nothing. Solutions: leave a body on the plate as stone and float in as the wisp,
+## or, as the Tar'ye, shove the nearby boulder onto the plate and walk in.
+func _build_weight_puzzle() -> void:
+	var c := WEIGHT_PUZZLE
+	var stone := ROCK.darkened(0.25)
+	var half := 3.0       # Half the hut's width.
+	var height := 3.2
+	var wall := 0.4
+
+	var back := BoxMesh.new()
+	back.size = Vector3(half * 2.0, height, wall)
+	_add_solid(back, c + Vector3(0.0, height * 0.5, -half), Vector3.ZERO, stone)
+	for side in [-1.0, 1.0]:
+		var side_wall := BoxMesh.new()
+		side_wall.size = Vector3(wall, height, half * 2.0)
+		_add_solid(side_wall, c + Vector3(half * side, height * 0.5, 0.0), Vector3.ZERO, stone)
+		# The front wall, either side of a 2 m doorway.
+		var front := BoxMesh.new()
+		front.size = Vector3(half - 1.0, height, wall)
+		_add_solid(front, c + Vector3((1.0 + (half - 1.0) * 0.5) * side, height * 0.5, half), Vector3.ZERO, stone)
+	var roof := BoxMesh.new()
+	roof.size = Vector3(half * 2.0 + 0.8, 0.5, half * 2.0 + 0.8)
+	_add_solid(roof, c + Vector3(0.0, height + 0.25, 0.0), Vector3.ZERO, stone)
+
+	var gate := StoneGate.new()
+	gate.size = Vector3(2.0, height, wall * 0.9)
+	gate.position = c + Vector3(0.0, height * 0.5, half)
+	add_child(gate)
+
+	var plate := PressurePlate.new()
+	plate.position = c + Vector3(0.0, 0.0, half + 4.5)
+	add_child(plate)
+	plate.changed.connect(gate.set_open)
+
+	var shrine := SpiritShrine.new()
+	shrine.position = c + Vector3(0.0, 0.0, -1.2)
+	add_child(shrine)
+
+	# A boulder nearby, for the Tar'ye way of solving it.
+	_add_boulder(c + Vector3(6.0, 1.2, half + 6.0), 1.1)
 
 
 # --- Sky, sun and atmosphere -------------------------------------------------
@@ -175,7 +224,11 @@ func _build_rocks() -> void:
 		var ground := ISLAND_TOP if distance < 54.0 else 0.4
 		var spot := Vector3(cos(angle) * distance, ground + radius * 0.3, sin(angle) * distance)
 		var tilt := Vector3(_rng.randf_range(-0.3, 0.3), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.3, 0.3))
-		_add_solid(rock, spot, tilt, ROCK.lightened(_rng.randf_range(-0.08, 0.08)), radius < 1.3)
+		var shade := _rng.randf_range(-0.08, 0.08)
+		# Keep the puzzle area clear.
+		if Vector2(spot.x - WEIGHT_PUZZLE.x, spot.z - WEIGHT_PUZZLE.z).length() < 10.0:
+			continue
+		_add_solid(rock, spot, tilt, ROCK.lightened(shade), radius < 1.3)
 
 
 # --- Statues -----------------------------------------------------------------

@@ -76,6 +76,61 @@ Kash can see how good or evil a person's soul is, and spot people likely to harm
 - 💡 Shown as a **visible aura of light or shadow**, not a number. It echoes the wisp's ability to see darklings.
 - ✅ Used in puzzles. Example: as a Kash you see that *Johnny the tax collector* is deeply evil. On another loop you follow him as a wisp and see darklings possessing him, steering him to cause the disaster. As a wisp you can drive them out and save the area.
 
+### Species skills: the build list
+Each skill gets built and tested **on its own**, in its own small spot on the test island, before they're combined into real puzzles. ✅ = prototyped.
+
+**Any body**
+- ✅ Walk, run (double-tap W), jump, swim
+- ✅ **Stone weight:** a body you leave turns to heavy stone and stays put, so it can hold down a pressure plate (the hut puzzle)
+
+**Wisp**
+- ✅ Float, dash, comet tail; spirit view; sees darklings
+- ✅ Shine (Left Mouse) to drive darklings off; draw light lines (Right Mouse) in a heart chase
+- ✅ Weighs nothing (can't press plates); can't move things
+- ⬜ Pass through some things that block bodies (which ones is still open)
+
+**Human**
+- ✅ Can't move boulders (struggles and gives up)
+- ⬜ **Operate machines:** levers, cranks, winches, doors that only hands can work
+- ⬜ **Read and translate:** signs and writing that look like scribbles to other species
+- ⬜ **Tools and explosives:** blow open cracked walls, use rope, etc. (ties into the 3 inventory slots)
+- ⬜ Full market access (later, with people)
+
+**Tar'ye**
+- ✅ **Shove boulders** (Right Mouse)
+- ⬜ **Climb** trees and cliffs, fast and far
+- ⬜ **Run on four legs:** faster, lower to the ground
+- ⬜ Stronger in fights (later, with combat)
+- ⬜ Weakness: **some puzzle markings are invisible** to them (ones Humans and Kash can see)
+- ⬜ Weakness: eats only meat (later, with hunger)
+
+**Fayran**
+- ⬜ **Flight**, using up hunger; fast; reaches high places
+- ⬜ Weakness: **flight ceiling** (thin air)
+- ⬜ Weakness: **drowns in deep water** (wings soak through)
+- ⬜ Weakness: **smoke and toxic air** hurt badly
+- ⬜ Weakness: dislikes caves (can't, or won't, go into tight places)
+
+**Sen-Kash**
+- ⬜ **Survives heat** that hurts everyone else
+- ⬜ **Soul-sight:** sees an aura of light or shadow on people (and possessed things)
+- ⬜ **Sees math and shape puzzles** others can't
+- ⬜ Slithers rather than walks; metalworking (later)
+
+**Qoi-Kash**
+- ⬜ **Fits tight crawlspaces**
+- ⬜ **Gills:** swims a long time underwater; **survives toxic air** longer
+- ⬜ Soul-sight and math puzzles (shared with Sen-Kash)
+- ⬜ Weakness: **can't leave caves or water**; dislikes light
+
+**Shared hazards** (needed for several weaknesses above, so they're built once)
+- ⬜ **Health** (Minecraft-style, with hunger)
+- ⬜ **Breath** underwater (Qoi-Kash don't need it)
+- ⬜ **Heat** zones (Sen-Kash are fine)
+- ⬜ **Smoke and toxic air** (Fayran are hurt most; Qoi-Kash least)
+
+💡 Suggested order: Tar'ye climbing → Fayran flight (with height limit and deep water) → shared hazards (health, breath, heat, smoke) → Human machines and reading → Sen-Kash → Qoi-Kash. Each new species gets a statue on the test island and its own little test spot.
+
 ---
 
 ## 5. Statues and form-swapping ✅
@@ -207,6 +262,9 @@ Like Outer Wilds, many puzzles should come from a small set of tools used in dif
 - A clock shows the day and time (for testing, at least).
 - ✅ At night: a **starry sky and a visible moon**, and the everyday world's colors get a little less vivid (but stay clearly different from spirit view's grey-navy).
 
+### Spirit shrines ✅ (prototyped)
+- Small glowing orbs only the wisp can take. Each one **grows the home star** a little. One sits inside the stone-weight puzzle's hut as a reward.
+
 ### The home star ✅ (prototyped)
 - The spirit sky has **one star**: the wisp's home. In wisp form, **all the other stars disappear** and only this one remains.
 - On ordinary nights it also shines among the other stars, so you can find it from a body too.
@@ -270,9 +328,9 @@ Like Outer Wilds, many puzzles should come from a small set of tools used in dif
 3. ✅ Day-night cycle
 4. ✅ Tar'ye, with boulder pushing (form-gated path)
 5. ✅ The heart chase (ending a stubborn possession)
-6. Stone-weight puzzle: leave a body on a pressure plate
-7. The loop, with a timed event to puzzle around (e.g. a rising tide covering a path)
-8. Fayran (flight)
+6. ✅ Stone-weight puzzle: the hut, gate and pressure plate (a body left as stone, or a Tar'ye's boulder, opens it; a spirit shrine inside grows the home star)
+7. Each species' skills, one at a time (see **Species skills: the build list** in section 4)
+8. The loop, with a timed event to puzzle around (e.g. a rising tide covering a path)
 9. The journal
 
 ---

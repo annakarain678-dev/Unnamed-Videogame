@@ -129,6 +129,16 @@ func set_spirit(active: bool) -> void:
 	_spirit_goal = 1.0 if active else 0.0
 
 
+## The wisp has grown: its home star gets a little bigger. (Growth runs from 0 to 1.)
+func grow_star(amount: float) -> void:
+	_star.growth = clampf(_star.growth + amount, 0.0, 1.0)
+
+
+## How grown the home star is, 0 to 1.
+func star_growth() -> float:
+	return _star.growth
+
+
 ## Inside a possessed heart: keep spirit view's darkness, but drop its color wash.
 func set_in_heart(inside: bool) -> void:
 	_heart_amount = 1.0 if inside else 0.0
