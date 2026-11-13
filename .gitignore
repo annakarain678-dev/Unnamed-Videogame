@@ -1,2 +1,11 @@
 .DS_Store
 .claude/settings.local.json
+
+# Godot cache (rebuilt automatically)
+.godot/
+
+# Test screenshots
+/screenshots/
+
+# Graphify map of the project (rebuilt any time with: graphify update .)
+graphify-out/

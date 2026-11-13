@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/test_island.gd" id="1_island"]
+[ext_resource type="Script" path="res://scripts/wisp.gd" id="2_wisp"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/player_controller.gd" id="4_player"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_island")
+
+[node name="Wisp" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 68)
+script = ExtResource("2_wisp")
+camera_rig_path = NodePath("../CameraRig")
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("3_camera")
+target_path = NodePath("../Wisp")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
+spring_length = 6.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
+fov = 70.0
+
+[node name="PlayerController" type="Node" parent="."]
+script = ExtResource("4_player")
+wisp_path = NodePath("../Wisp")
+camera_rig_path = NodePath("../CameraRig")
