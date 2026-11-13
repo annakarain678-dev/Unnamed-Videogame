@@ -82,6 +82,9 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 **Any body**
 - ✅ Walk, run (double-tap W), jump, swim
 - ✅ **Stone weight:** a body you leave turns to heavy stone and stays put, so it can hold down a pressure plate (the hut puzzle)
+- ✅ **Shattering:** an empty statue that falls more than ~10 m shatters when it lands (e.g. leaving a flying Fayran in mid-air). For now it simply reappears on its plinth; a breaking animation comes later.
+- ✅ **Breath:** with your head underwater, a breath bar runs down (Human ~15 s, Sen-Kash ~15 s, Tar'ye ~12 s, Fayran ~8 s). Floating at the surface counts as breathing. Only the **Qoi-Kash** (gills) never run out.
+- ✅ **Drowning:** run out of breath and you drown: you're thrown out as the wisp and the body returns to its plinth. (Later, dying in a body restarts the chapter's loop.)
 
 **Wisp**
 - ✅ Float, dash, comet tail; spirit view; sees darklings
@@ -104,16 +107,18 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 - ⬜ Weakness: **some puzzle markings are invisible** to them (ones Humans and Kash can see)
 - ⬜ Weakness: eats only meat (later, with hunger)
 
-**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders; they fold down the back like a cloak at rest and spread to fly)
+**Fayran** (look: ✅ a Human with a pair of white feathered wings from the upper shoulders; they fold down the back like a cloak at rest and spread to fly. ✅ **No tail feathers, on purpose.** Instead, a small fan of feathers on each side of each ankle, like a fish's side fins: flat against the leg on the ground, spread out in flight to catch the wind and hold the legs up.)
 - ✅ **Flight:** jump, then Space again in mid-air to take off. Hold Space to beat your wings and climb, let go to glide gently down, Shift to dive. You land when you touch the ground. Fast (double-tap W flies faster).
-- ✅ **Flight energy:** climbing tires you fast, gliding slowly; it comes back on the ground. Shown as a bar. (Later this becomes hunger.)
-- ✅ Weakness: **flight ceiling** at ~30 m above the sea (thin air)
-- ✅ Weakness: **can't swim**: in deep water the wings soak through and you sink, and you can't fly again until they dry (~4 s). (Actually drowning comes with the health and breath system.)
+- ✅ **Flight pose:** nearly level, but not quite; legs trailing straight behind, arms swept back. More upright when hovering.
+- ✅ **Flight energy is the main limit:** climbing tires you fast, gliding slowly; it comes back on the ground. Shown as a bar. One full bar climbs ~75 m, enough to land on the giant trees. (Later this becomes hunger.)
+- ✅ The **world's height limit** is far up (~120 m above the sea), where the air is too thin to climb
+- ✅ Weakness: **can't swim**: in deep water the wings soak through and you sink (and can drown), and you can't fly again until they dry (~4 s)
 - ⬜ Weakness: **smoke and toxic air** hurt badly
 - ⬜ Weakness: dislikes caves (can't, or won't, go into tight places)
 
 **Sen-Kash** (look: ✅ a human upper body on a long snake tail in jewel tones: emerald and gold bands with ruby accents, tan skin, a gold vest and collar, gold slit eyes. No gills.)
-- ✅ **Slithers** instead of walking: the tail follows the body's path in S-curves, like a real snake; jumps only a little
+- ✅ **Slithers** instead of walking: the tail follows the exact path the body took, with an S-shaped wave running down it, like a real snake. It **always keeps its full length** (it never bunches up when you stop or turn). Jumps only a little.
+- ✅ **Slithers up steep slopes and steps** that walkers have to jump (up to ~70°); the tail lies along the ground over steps and ledges
 - ✅ Swims (moderately)
 - ⬜ **Survives heat** that hurts everyone else
 - ⬜ **Soul-sight:** sees an aura of light or shadow on people (and possessed things)
@@ -130,7 +135,7 @@ Each skill gets built and tested **on its own**, in its own small spot on the te
 
 **Shared hazards** (needed for several weaknesses above, so they're built once)
 - ⬜ **Health** (Minecraft-style, with hunger)
-- ⬜ **Breath** underwater (Qoi-Kash don't need it)
+- ✅ **Breath** underwater (Qoi-Kash don't need it), and drowning
 - ⬜ **Heat** zones (Sen-Kash are fine)
 - ⬜ **Smoke and toxic air** (Fayran are hurt most; Qoi-Kash least)
 

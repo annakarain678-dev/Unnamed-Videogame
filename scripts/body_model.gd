@@ -56,6 +56,7 @@ var _serpent_tail: KashTail
 var _hips: Node3D
 var _wings: Array[Node3D] = []
 var _wing_flap := 0.0
+var _ankle_fins: Array[Dictionary] = []
 var _parts: Array[Dictionary] = []  # { "material": StandardMaterial3D, "alive": Color }
 var _left_leg: Node3D
 var _right_leg: Node3D
@@ -193,6 +194,28 @@ func _add_wings(feathers: Color, tips: Color) -> void:
 		_wings.append(wing)
 	_set_wings(0.0, 0.0, 1.0)
 
+	# No tail feathers (on purpose). Instead, a small fan of feathers on each side of each ankle,
+	# like a fish's side fins. They lie flat against the leg on the ground, and spread out in flight
+	# to catch the wind and hold the legs up, keeping the body nearly level.
+	for leg in [_left_leg, _right_leg]:
+		for side: float in [-1.0, 1.0]:
+			var fin := _add_pivot(leg, Vector3(0.08 * side, -0.74, 0.02))
+			for k in 3:
+				var feather := BoxMesh.new()
+				feather.size = Vector3(0.05, 0.22, 0.015)
+				var fan := _add_pivot(fin, Vector3.ZERO)
+				fan.rotation.x = (k - 1) * 0.35  # Fanned out front-to-back.
+				_add_part(fan, feather, Vector3(0.0, -0.1, 0.0), tips if k == 1 else feathers)
+			_ankle_fins.append({"pivot": fin, "side": side})
+
+
+## Fayran ankle fins: 0 = lying flat down the leg, 1 = spread out sideways.
+func _set_ankle_fins(spread: float, blend: float) -> void:
+	for fin in _ankle_fins:
+		var pivot: Node3D = fin["pivot"]
+		var side: float = fin["side"]
+		pivot.rotation.z = lerpf(pivot.rotation.z, spread * 1.35 * side, blend)
+
 
 ## Positions the wings: `spread` 0 = folded down the back, 1 = straight out to the sides;
 ## `beat` adds a flap up or down.
@@ -273,6 +296,11 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 		# Arms braced forward against it, one leg planted behind to drive the shove.
 		arm_lift = 1.45
 		leg_swing = 0.4
+	elif wing_mode != "folded":
+		# Flying: legs held together and trailing straight behind, arms swept slightly back.
+		leg_swing = sin(_time * 2.0) * 0.06
+		arm_lift = -0.35
+		arm_spread = 0.25
 	elif swimming:
 		# Treading water: arms sweep gently out to the sides, legs kick slowly.
 		_phase += delta * 3.0
@@ -297,6 +325,12 @@ func animate(speed: float, swimming: bool, on_floor: bool, delta: float, alive :
 	_right_arm.rotation.x = lerpf(_right_arm.rotation.x, right_arm, blend)
 	_left_arm.rotation.z = lerpf(_left_arm.rotation.z, -arm_spread, blend)
 	_right_arm.rotation.z = lerpf(_right_arm.rotation.z, arm_spread, blend)
+
+
+## Kash only: lays the tail out fresh (e.g. after the statue returns to its plinth).
+func reset_tail() -> void:
+	if _serpent_tail:
+		_serpent_tail._laid_out = false
 
 
 ## Kash only: tells the tail which body it belongs to (so it doesn't treat that body as ground).
@@ -351,6 +385,7 @@ func _animate_wings(delta: float) -> void:
 			_set_wings(1.0, sin(_time * 1.3) * 0.06, blend)
 		_:
 			_set_wings(0.0, 0.0, blend)
+	_set_ankle_fins(0.0 if wing_mode == "folded" else 1.0, blend)
 
 
 ## The tail swishes side to side in a wave that travels down to the tip, with an extra

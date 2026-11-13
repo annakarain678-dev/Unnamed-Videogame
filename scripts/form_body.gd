@@ -47,15 +47,25 @@ const SPECIES := {
 ## Flight (Fayran).
 const FLY_SPEED := 8.5
 const FLY_DASH_SPEED := 12.0
-const FLAP_CLIMB := 4.0
+const FLAP_CLIMB := 4.5
 const GLIDE_SINK := 1.2
 const DIVE_SPEED := 7.0
-## How high above the sea a Fayran can climb before the air is too thin.
-const FLIGHT_CEILING := 30.0
+## The world's height limit: above this the air is too thin to climb. It's set high; the real
+## limit on flying is energy.
+const FLIGHT_CEILING := 120.0
 ## Flight energy (0-100): beating your wings to climb uses it fast, gliding slowly; it comes back
-## on the ground. (Later this becomes hunger.)
-const FLAP_COST := 10.0
-const GLIDE_COST := 2.5
+## on the ground. (Later this becomes hunger.) Enough to climb well above the giant trees.
+const FLAP_COST := 6.0
+const GLIDE_COST := 2.0
+## In flight the body lies nearly level (but not quite), legs trailing behind.
+const FLIGHT_TILT := -1.2
+
+## Breath: seconds a body can stay with its head underwater. Gills never run out.
+const BREATH := {"Human": 15.0, "Tar'ye": 12.0, "Fayran": 8.0, "Sen-Kash": 15.0}
+const BREATH_RECOVERY := 4.0
+## A statue falling further than this (meters) shatters when it lands. (For now it simply
+## reappears on its plinth.)
+const SHATTER_FALL := 10.0
 const REST_RECOVERY := 35.0
 ## How long soaked wings take to dry after leaving deep water.
 const SOAKED_TIME := 4.0
@@ -107,6 +117,12 @@ var wings_soaked := false
 var in_deep_water: bool:
 	get:
 		return _swimming
+## Breath left (seconds), and how much this body has. Gills: infinite.
+var breath := 15.0
+var max_breath := 15.0
+
+## Sent when this body drowns, or shatters from a fall; it then returns to its plinth.
+signal lost(reason: String)
 
 var _pose: Node3D
 var _model: BodyModel
@@ -122,6 +138,11 @@ var _step_back_left := 0.0
 ## True once an empty statue has come to rest. It then stays put until entered.
 var _settled := false
 var _soaked_left := 0.0
+## Where the statue started (its plinth), to return to after drowning or shattering.
+var _home := Transform3D.IDENTITY
+var _home_facing := 0.0
+## While an empty statue is falling: the height it started falling from.
+var _fall_from := NAN
 
 
 func _ready() -> void:
@@ -141,6 +162,13 @@ func _ready() -> void:
 	has_gills = stats.get("gills", false)
 	if has_gills:
 		swim_vertical_speed = 3.5
+	max_breath = INF if has_gills else BREATH.get(species, 15.0)
+	breath = max_breath
+	# Kash slither up steep slopes and steps that walkers can't.
+	if species == "Sen-Kash" or species == "Qoi-Kash":
+		floor_max_angle = deg_to_rad(70.0)
+	_home = global_transform
+	_home_facing = deg_to_rad(facing_degrees)
 
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.32
@@ -177,11 +205,28 @@ func release() -> void:
 	is_dashing = false
 	is_flying = false
 	_swimming = false
+	_fall_from = NAN if is_on_floor() else global_position.y
 	_shove_left = 0.0
 	_struggle_left = 0.0
 	_step_back_left = 0.0
 	_model.pose = ""
 	_model.set_stone(true, 0.45 if haunted else 0.0)
+
+
+## Puts the statue back on its plinth, as it started (after drowning or shattering).
+func return_home() -> void:
+	global_transform = _home
+	velocity = Vector3.ZERO
+	_pose.rotation = Vector3(0.0, _home_facing, 0.0)
+	_swimming = false
+	is_flying = false
+	breath = max_breath
+	flight_energy = 100.0
+	_soaked_left = 0.0
+	_fall_from = NAN
+	_settled = true
+	reset_physics_interpolation()
+	_model.reset_tail()
 
 
 ## A darkling possesses this statue, or is driven out of it.
@@ -260,11 +305,21 @@ func _physics_process(delta: float) -> void:
 			_fly(delta, direction, rise, dive)
 		else:
 			_walk(delta, direction, jump)
+		if not possessed and is_nan(_fall_from) and not is_on_floor() and velocity.y < 0.0:
+			_fall_from = global_position.y  # An empty statue has started to fall.
 		move_and_slide()
 		if not possessed and is_on_floor():
 			_settled = true
+			# A statue that fell a long way shatters. (For now, it just returns to its plinth.)
+			if not is_nan(_fall_from) and _fall_from - global_position.y > SHATTER_FALL:
+				return_home()
+				_report_lost("shattered")
+				return
+			_fall_from = NAN
 		if is_flying and is_on_floor():
 			is_flying = false  # Landed.
+
+	_update_breath(delta)
 
 	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
 	var yaw_before := _pose.rotation.y
@@ -280,6 +335,26 @@ func _physics_process(delta: float) -> void:
 	var stroke_speed := horizontal_speed if can_swim or not _swimming else 0.0
 	_model.animate(stroke_speed, _swimming, standing, delta, possessed, turn_rate)
 	_model.update_serpent_tail(delta, horizontal_speed, global_position.y, standing, possessed)
+
+
+func _report_lost(reason: String) -> void:
+	lost.emit(reason)
+	get_tree().call_group("player_controller", "on_body_lost", self, reason)
+
+
+## Holding your breath while your head is underwater; drowning when it runs out.
+## Floating at the surface counts as breathing (even lying flat for a swimming stroke).
+func _update_breath(delta: float) -> void:
+	if not possessed or is_inf(max_breath):
+		return
+	var surface_height := sea_level - CHEST - 0.05
+	var head_under := _swimming and global_position.y < surface_height - 0.25
+	if head_under:
+		breath = maxf(0.0, breath - delta)
+		if breath <= 0.0:
+			_report_lost("drowned")
+	else:
+		breath = minf(max_breath, breath + BREATH_RECOVERY * delta)
 
 
 ## Fayran: taking off (Space in mid-air), and flight energy coming back on the ground.
@@ -439,8 +514,8 @@ func _update_pose(delta: float, horizontal_speed: float) -> void:
 	if _swimming and horizontal_speed > 0.6 and can_swim:
 		goal_tilt = SWIM_TILT
 	elif is_flying:
-		# Leaning into the flight, more the faster you go.
-		goal_tilt = -clampf(horizontal_speed / FLY_DASH_SPEED, 0.0, 1.0) * 0.9
+		# Nearly level in flight (not quite), more so the faster you go; more upright when hovering.
+		goal_tilt = lerpf(-0.35, FLIGHT_TILT, clampf(horizontal_speed / FLY_SPEED, 0.0, 1.0))
 	elif _struggle_left > 0.0:
 		goal_tilt = EFFORT_TILT
 	elif _shove_left > 0.0:

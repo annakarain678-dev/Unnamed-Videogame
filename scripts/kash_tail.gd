@@ -2,8 +2,8 @@ class_name KashTail
 extends Node3D
 ## The long serpent tail of a Kash (Sen-Kash: snake; Qoi-Kash: eel).
 ## It starts at the hips and drags along behind the body like a real tail: every part of it
-## follows the exact path the hips took, so when the body slithers side to side, S-shaped waves
-## run down the tail.
+## follows the exact path the hips took, and always keeps its full length (it never bunches up
+## when you stop or turn). A side-to-side wave runs down it as it slithers.
 ## On land it lies along the ground; in water it trails freely.
 ## Lives in world space (it doesn't rotate stiffly with the body), like the wisp's comet tail.
 
@@ -33,6 +33,7 @@ var _points := PackedVector3Array()
 var _path := PackedVector3Array()
 var _segments: Array[Node3D] = []
 var _time := 0.0
+var _wave := 0.0
 var _laid_out := false
 
 
@@ -99,29 +100,38 @@ func lay_out(ground_y: float) -> void:
 func update(delta: float, speed: float, ground_y: float, on_ground: bool) -> void:
 	if not _laid_out:
 		lay_out(ground_y)
+		return
 	_time += delta
 
-	# Slither: the hips sway side to side, wider the faster it goes, and quick enough that a couple
-	# of S-shaped waves fit along the tail at once.
-	var sway := 0.06 + clampf(speed / 5.0, 0.0, 1.0) * 0.38
-	var rate := 1.5 + speed * 2.6
-	var side := side_reference.global_basis.x.normalized() if side_reference else Vector3.RIGHT
-	var head := anchor.global_position + side * sin(_time * rate) * sway
-
-	# Like a real snake, every part of the tail follows the exact path the hips took, so the
-	# S-curves stay crisp all the way down instead of straightening out.
-	if head.distance_to(_path[0]) > 0.03:
-		_path.insert(0, head)
+	# The tail follows the exact path the hips have taken. Only real movement is recorded, so
+	# standing still or turning on the spot never bunches the tail up: it always keeps its full
+	# length, lying where the body has been.
+	var hips := anchor.global_position
+	if hips.distance_to(_path[0]) > 0.06:
+		_path.insert(0, hips)
 		_trim_path()
 	else:
-		_path[0] = head
+		_path[0] = hips
 
+	# The slither: a side-to-side wave that runs down the tail, bigger and quicker when moving.
+	var moving := clampf(speed / 5.0, 0.0, 1.0)
+	var sway := 0.03 + moving * 0.3
+	_wave += delta * (1.8 + speed * 2.2)
+
+	var ahead := hips
 	for i in segment_count:
-		var point := _point_along_path(spacing * (i + 1))
-		# On land, the tail settles down onto whatever ground is under it.
+		var base := _point_along_path(spacing * (i + 1))
+		var along := base - ahead
+		along.y = 0.0
+		var side := along.cross(Vector3.UP).normalized() if along.length() > 0.001 else Vector3.ZERO
+		# The wave grows from nothing at the hips to full size a few segments down.
+		var reach := clampf((i + 1) / 4.0, 0.0, 1.0)
+		var point := base + side * sin(_wave - i * 0.55) * sway * reach
+		ahead = base
+		# On land, the tail lies along whatever ground is under it (slopes, steps, ledges).
 		if on_ground:
 			var rest := _ground_at(point, ground_y) + _radius(i) * 0.8
-			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-12.0 * delta))
+			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-14.0 * delta))
 			point.y = maxf(point.y, rest - 0.05)
 		_points[i] = point
 	_place_segments()

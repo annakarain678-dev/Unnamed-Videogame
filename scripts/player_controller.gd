@@ -18,6 +18,9 @@ var in_heart := false
 
 var _prompt: Label
 var _energy: ProgressBar
+var _breath: ProgressBar
+var _notice_text := ""
+var _notice_left := 0.0
 
 @onready var _wisp: Wisp = get_node(wisp_path)
 @onready var _rig: CameraRig = get_node(camera_rig_path)
@@ -50,9 +53,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			_enter_body(statue)
 
 
-func _process(_delta: float) -> void:
+## A body drowned (while you were in it) or a statue shattered from a fall. Either way the body goes
+## back to its plinth; if you were in it, you're thrown out as the wisp. (Later, dying in a body
+## restarts the chapter's loop.)
+func on_body_lost(body: FormBody, reason: String) -> void:
+	if reason == "drowned" and body == current_body:
+		_leave_body()
+		body.return_home()
+		_notice("You drowned. The %s statue is back on its plinth." % body.species)
+	elif reason == "shattered":
+		_notice("The %s statue shattered from the fall. It's back on its plinth." % body.species)
+
+
+func _notice(text: String) -> void:
+	_notice_text = text
+	_notice_left = 4.0
+
+
+func _process(delta: float) -> void:
 	var key := _key_name("toggle_body")
-	if in_heart:
+	_notice_left = maxf(0.0, _notice_left - delta)
+	if _notice_left > 0.0:
+		_prompt.text = _notice_text
+	elif in_heart:
 		_prompt.text = ""  # The heart chase shows its own instructions.
 	elif current_body:
 		if current_body.is_struggling:
@@ -84,6 +107,13 @@ func _process(_delta: float) -> void:
 	_energy.visible = flier and current_body.flight_energy < 99.5
 	if flier:
 		_energy.value = current_body.flight_energy
+
+	# Breath, shown while holding it (bodies without gills).
+	var holding := current_body != null and not is_inf(current_body.max_breath) \
+		and current_body.breath < current_body.max_breath - 0.05
+	_breath.visible = holding
+	if holding:
+		_breath.value = 100.0 * current_body.breath / current_body.max_breath
 
 
 func _enter_body(body: FormBody) -> void:
@@ -165,3 +195,14 @@ func _build_prompt() -> void:
 	_energy.add_theme_stylebox_override("background", back)
 	_energy.visible = false
 	layer.add_child(_energy)
+
+	# A blue bar for breath underwater, just above that.
+	_breath = _energy.duplicate() as ProgressBar
+	_breath.offset_top = -128.0
+	_breath.offset_bottom = -118.0
+	var water := StyleBoxFlat.new()
+	water.bg_color = Color(0.45, 0.75, 1.0)
+	water.set_corner_radius_all(4)
+	_breath.add_theme_stylebox_override("fill", water)
+	_breath.visible = false
+	layer.add_child(_breath)
