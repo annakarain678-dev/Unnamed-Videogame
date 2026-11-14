@@ -1,5 +1,7 @@
 # Lenhavu — Game Design Document
 
+> **Pivot (see [pivot-open-world.md](pivot-open-world.md)):** the time loop and chapters below are replaced by one open world with a stilled kingdom. Everything else stands unless that note says otherwise.
+
 > Working title: *Unnamed Videogame*. This is the game's rulebook. It records what is **decided**, what is a **suggestion** waiting for a yes, and what is still **open**. Update it whenever a decision is made.
 
 Status legend: ✅ Decided · 💡 Suggested (not yet confirmed) · ❓ Open question
