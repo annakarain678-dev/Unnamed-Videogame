@@ -10,6 +10,8 @@ extends Node
 
 ## Sent when the player enters a body (true) or returns to being the wisp (false).
 signal form_changed(in_body: bool)
+## Sent when the game autosaves (at a pillar), with the text to show.
+signal saved(text: String)
 
 ## The body the wisp is in, or null while it's free.
 var current_body: FormBody = null
@@ -19,6 +21,8 @@ var in_heart := false
 ## Where the wisp wakes up when a body is lost (the last form pillar it used).
 var respawn_point := Vector3.ZERO
 var has_respawn := false
+## When and where the last save was, for the pause menu (e.g. "Day 1  ·  10:35 am").
+var last_save_text := ""
 
 var _wheel: FormWheel
 var _wheel_pillar: FormPillar
@@ -47,9 +51,18 @@ func enter_body(body: FormBody) -> void:
 
 
 ## Remembers where the wisp should wake up if a body is lost.
-func set_save_point(at: Vector3) -> void:
+## (Nothing is written to disk yet; this is the one place real saving will hook in later.)
+func set_save_point(at: Vector3, announce := true) -> void:
 	respawn_point = at
 	has_respawn = true
+	var atmosphere := get_tree().get_first_node_in_group("atmosphere") as Atmosphere
+	last_save_text = atmosphere.cycle.clock_text() if atmosphere else ""
+	if announce:
+		saved.emit("Autosaved")
+
+
+func is_wheel_open() -> bool:
+	return _wheel != null and _wheel.is_open
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -119,6 +132,8 @@ func _nearest_pillar() -> FormPillar:
 
 func _open_wheel(pillar: FormPillar) -> void:
 	_wheel_pillar = pillar
+	# Touching a pillar autosaves.
+	set_save_point(pillar.respawn_position())
 	# Hold the wisp still while the wheel is open.
 	_wisp.velocity = Vector3.ZERO
 	_wisp.set_physics_process(false)
@@ -128,7 +143,6 @@ func _open_wheel(pillar: FormPillar) -> void:
 func _on_form_chosen(species: String) -> void:
 	if _wheel_pillar == null:
 		return
-	set_save_point(_wheel_pillar.respawn_position())
 	_enter_body(_wheel_pillar.spawn_form(species))
 
 

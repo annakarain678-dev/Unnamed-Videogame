@@ -69,6 +69,7 @@ var _right_arm: Node3D
 var _tail: Array[Node3D] = []
 var _tail_lag := 0.0
 var _tail_lag_speed := 0.0
+var _tail_turn := 0.0
 var _phase := 0.0
 var _time := 0.0
 
@@ -455,10 +456,13 @@ func _animate_tail(speed: float, turn_rate: float, delta: float) -> void:
 	if _tail.is_empty() or delta <= 0.0:
 		return
 
-	# A soft spring: the tail's lag chases "opposite the turn", overshoots a little, and settles.
-	var lag_goal := clampf(-turn_rate * 0.12, -0.9, 0.9)
-	_tail_lag_speed += ((lag_goal - _tail_lag) * 45.0 - _tail_lag_speed * 9.0) * delta
-	_tail_lag += _tail_lag_speed * delta
+	# The turn rate is jumpy from frame to frame, so smooth it first. Then a soft spring: the tail's
+	# lag chases "opposite the turn". It is critically damped (no bounce), and eases off smoothly at
+	# the limit instead of snapping, so quick turns curve the tail a lot without it twitching back.
+	_tail_turn = lerpf(_tail_turn, clampf(turn_rate, -14.0, 14.0), 1.0 - exp(-7.0 * delta))
+	var lag_goal := 1.5 * tanh(-_tail_turn * 0.16 / 1.5)
+	_tail_lag_speed += ((lag_goal - _tail_lag) * 60.0 - _tail_lag_speed * 15.5) * minf(delta, 0.05)
+	_tail_lag += _tail_lag_speed * minf(delta, 0.05)
 
 	var swish := 2.0 + speed * 0.5
 	var flick := pow(maxf(0.0, sin(_time * 0.9)), 12.0) * 0.35  # An occasional extra flick.
@@ -466,7 +470,7 @@ func _animate_tail(speed: float, turn_rate: float, delta: float) -> void:
 		var along := float(i) / float(_tail.size() - 1)
 		var sway := sin(_time * swish - i * 0.7) * (0.14 + along * 0.1 + flick)
 		# The base takes most of the lag; the rest of the tail curves with it.
-		var lag := _tail_lag * (0.5 if i == 0 else 0.12)
+		var lag := _tail_lag * (0.5 if i == 0 else 0.2)
 		_tail[i].rotation.y = sway * (0.6 if i == 0 else 1.0) + lag
 		# A slight lift and droop as it swings.
 		var lift := sin(_time * swish * 0.5 - i * 0.5) * 0.04

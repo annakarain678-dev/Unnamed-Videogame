@@ -16,6 +16,7 @@ const MAP_RADIUS := 3500.0
 const MAP_SIZE := 512
 const FOG_DENSITY := 0.00045
 const NO_SEA := -100000.0
+const FEET := 3.28084
 ## Where the form pillar stands: in the main clearing, a short walk from the lake, facing it.
 const PILLAR_AT := Vector2(-20.0, 85.0)
 const PILLAR_YAW := 225.0
@@ -76,6 +77,7 @@ func _ready() -> void:
 	print("Forest: far terrain built in %d ms (%s)" % [Time.get_ticks_msec() - started, chunks.stats()])
 
 	_build_hud()
+	_build_menu()
 	_build_map()
 	_map_task = WorkerThreadPool.add_task(_generate_map)
 
@@ -127,7 +129,7 @@ func _build_pillar() -> void:
 	pillar.position = Vector3(PILLAR_AT.x, ForestTerrain.height(PILLAR_AT.x, PILLAR_AT.y), PILLAR_AT.y)
 	pillar.rotation_degrees.y = PILLAR_YAW
 	add_child(pillar)
-	_player.set_save_point(pillar.respawn_position())
+	_player.set_save_point(pillar.respawn_position(), false)
 
 
 ## The surface of the lake in the main clearing. (The bowl itself is carved into the terrain.)
@@ -228,6 +230,18 @@ func _set_speed(index: int) -> void:
 
 # --- Text on screen -----------------------------------------------------------
 
+func _build_menu() -> void:
+	var menu := PauseMenu.new()
+	menu.name = "PauseMenu"
+	menu.player = _player
+	menu.rig = _rig
+	menu.info_text_changed = func(on: bool) -> void:
+		_hud.visible = on
+		_help.visible = on
+	add_child(menu)
+	_player.saved.connect(menu.toast)
+
+
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 2
@@ -255,9 +269,10 @@ func _update_hud() -> void:
 	var p := _wisp.global_position
 	var ground := ForestTerrain.height(p.x, p.z)
 	var from_center := Vector2(p.x, p.z).length()
-	_hud.text = "x %.2f km   z %.2f km   %d m above ground   %.2f km from the center\nspeed x%d (%d m/s)   %d fps\n%s" % [
-		p.x / 1000.0, p.z / 1000.0, int(p.y - ground), from_center / 1000.0,
-		int(SPEEDS[_speed_index]), int(_wisp.speed), Engine.get_frames_per_second(), chunks.stats()
+	# Feet and miles (the world is built in meters underneath).
+	_hud.text = "x %d ft   z %d ft   %d ft above ground   %.2f miles from the center\nspeed x%d (%d mph)   %d fps\n%s" % [
+		int(p.x * FEET), int(p.z * FEET), int((p.y - ground) * FEET), from_center / 1609.34,
+		int(SPEEDS[_speed_index]), int(_wisp.speed * 2.23694), Engine.get_frames_per_second(), chunks.stats()
 	]
 
 
@@ -298,7 +313,7 @@ func _build_map() -> void:
 	_map_rect.add_child(_map_marker)
 
 	var caption := Label.new()
-	caption.text = "The giant forest, about 5 km across. Click anywhere to fly there. M closes the map."
+	caption.text = "The giant forest, about 3 miles across. Click anywhere to fly there. M closes the map."
 	caption.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	caption.offset_top = -80.0
 	caption.offset_left = -300.0

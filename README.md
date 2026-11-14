@@ -22,7 +22,7 @@ Or just double-click the **Lenhavu** launcher on the Desktop.
 | Left Mouse or F (hold) | Shine: drive darklings away | |
 | Right Mouse (hold) | Draw a line of light (inside a heart, darklings can't cross it) | Push a boulder (only a Tar'ye can move it) |
 | Mouse | Look | Look |
-| Esc | Free the mouse (click to grab it again) | |
+| Esc | Pause menu (Resume, Journal, Options, Save, Quit) | |
 
 ## The giant forest (the scene that opens now)
 

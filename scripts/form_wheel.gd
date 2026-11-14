@@ -23,13 +23,13 @@ const ICONS := {
 }
 ## How far round a circle the mouse must go (in radians) to move the highlight one place. While you
 ## travel, an arrow grows toward the place it is about to jump to.
-const ANGLE_STEP := 0.85
+const ANGLE_STEP := 0.4
 ## The mouse is tracked as a point that stays within this many pixels of its start, and circling
 ## only counts while it is further out than the dead zone.
-const CURSOR_MAX := 140.0
-const DEAD_ZONE := 28.0
+const CURSOR_MAX := 90.0
+const DEAD_ZONE := 10.0
 ## After each jump the wheel rests for this long, ignoring the mouse, so it can't race round.
-const PAUSE := 0.4
+const PAUSE := 0.3
 
 var is_open := false
 
@@ -77,7 +77,7 @@ func _process(delta: float) -> void:
 	_pause = maxf(0.0, _pause - delta)
 	# If you stop moving the mouse, the arrow slowly fades back.
 	_mouse_travel = move_toward(_mouse_travel, 0.0, 1.0 * delta)
-	_cursor = _cursor.move_toward(Vector2.ZERO, 70.0 * delta)
+	_cursor = _cursor.move_toward(Vector2.ZERO, 30.0 * delta)
 	# Glide the highlight round the short way.
 	var goal := _slot_angle(_index)
 	_angle += wrapf(goal - _angle, -PI, PI) * (1.0 - exp(-14.0 * delta))

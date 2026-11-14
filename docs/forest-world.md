@@ -18,3 +18,9 @@ To change the size or the rim, see the constants at the top of `scripts/forest/f
 ## Fayran stamina (tuned for the big world)
 
 Flapping now costs about a quarter as much (about 70 seconds of nonstop flapping), gliding refills faster, and the flight ceiling is much higher. Flying within about 30 feet (9 m) of gentle ground or of the lake's surface refills energy quickly even while flapping, so a Fayran can cross the whole map by skimming low. Steep ground (a cliff face) doesn't count. See the constants near the top of `scripts/form_body.gd`.
+
+## Menu and saving (placeholders)
+
+- **Esc** opens the pause menu (`scripts/pause_menu.gd`): Resume, Journal (empty tabs for now), Options (mouse sensitivity, field of view and info text work), Save Game and Quit. It uses the same ink-and-cream, diamond-trim look as the species symbols.
+- **Autosave:** touching a form pillar shows "Autosaved" and remembers it as the last save (where the wisp wakes up). **Nothing is written to disk yet.** Real saving should hook in at `PlayerController.set_save_point`, and later needs to store the player's stats, journal, forms and the world state.
+- The on-screen info now shows feet, miles and mph.
