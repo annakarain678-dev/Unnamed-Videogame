@@ -131,3 +131,79 @@ The Sen-Kash hasn't been given a puzzle yet. A narrow burrow under the fire's st
 - Does the star know the whole truth or only part of it?
 - Is the "end" a place, a person, or a moment?
 - How much of the void scene do we show in the demo?
+
+## 6. What the ship log clues actually say (and how to copy it)
+
+Source: I opened all 89 cards on outerwilds.ventures and read the entries. The notes below are in my own words.
+
+### 6a. Big places versus side pieces
+
+**Big adventure areas** (each is a trip with several parts, a danger, and a payoff that points on):
+| Place | What makes it big |
+|---|---|
+| Ash Twin Project | The central mystery. A hollow planet with 4 sub-places feeding it (mines, forge, lab, workshop) |
+| Orbital Probe Cannon | A broken station with 3 branches (control, launch, tracking) and a countdown |
+| Dark Bramble and the Vessel | A maze that breaks the rules of space, hiding the one thing you need to reach the end |
+| Quantum Moon | Strange rules (it moves when unobserved) that you have to learn from other places first |
+| Brittle Hollow (Hanging City) | A collapsing world of ruins with a black hole underneath |
+| Giant's Deep (Sunless City, Ocean Depths) | A storm-wrapped ocean world with a hidden core |
+| The Stranger | A separate world with its own cluster of about 30 cards and its own story |
+| The Interloper | A frozen comet with a lethal secret in its core |
+
+**Mid-size explorations** (one place, one puzzle, one clear reward): the Hanging City's Black Hole Forge, the warp towers, Statue Island, the Volcanic Testing Site, the Subterranean Lake and the Sealed Vault.
+
+**Side pieces that only build story or mood** (they point nowhere, or only back):
+- The four camps (Esker, Riebeck, Chert, Feldspar) and Gabbro's island. They are characters with a personal arc, and they also supply a hint or two.
+- Anglerfish Fossil (a children's game), Frozen Jellyfish (Feldspar tries to eat one), Zero-G Cave, Lunar Lookout and the Radio Tower.
+- The Mural panels and several of the Stranger's "Burned Slide Reel" cards. Their only job is to feed one reveal.
+
+Rough proportions in the log: about 8 big areas, about 20 mid-size explorations and about 60 smaller places or entries. Roughly a third of the cards are one-link endings.
+
+### 6b. The kinds of hints used
+
+1. **A named neighbour.** "Three of the masks are receiving data from the Probe Tracking Module, Giant's Deep, and Timber Hearth." A card names the place you need next, without telling you how to get there.
+2. **A rule stated in the world.** "A warp tower aligns with the centre of its astral body." "To travel with a quantum object, you must stand on it and stop observing." You learn the rule in one place and use it in another.
+3. **A visible oddity.** A moon that shifts, a seed taking root, a cloaked ring world. You see it before you can reach it.
+4. **A character's theory.** Feldspar says space doesn't work the same inside Dark Bramble. Chert reports that all stars are dying. People tell you what they believe, and it's partly wrong or incomplete.
+5. **A failed attempt.** "The Sun Station did not work." "The Nomai put the cannon on indefinite hiatus." A past failure tells you what is still broken and still needs fixing.
+6. **A contradiction.** Two beacons from one ship ("as if it was in two locations at once"), or a photo with something odd that Hornfels dismisses. The player can't ignore it.
+7. **A missing piece.** Burned slide reels, hidden reels, "contents burned away". You can see exactly what you're missing, which tells you to look for it.
+8. **A map of consequences.** A diagram showing the warp towers' alignment, or a projection showing the sun's blast radius, tells you how long you have or how close you can be.
+9. **A tool teaching a rule through use.** Murals say "recall the rule of..." before the Quantum Shrine will open.
+10. **A feeling hint.** Chert's catatonia and the Nomai Grave say how heavy the stakes are without giving a puzzle.
+
+### 6c. The links between places
+
+- **Cause (A built B):** the Construction Yard built the cannon. The Volcanic Testing Site tested ore from the Nomai Mines.
+- **Purpose (A exists to serve B):** the Sun Station existed to power the Ash Twin Project.
+- **Data flow (what A produces, B receives):** the Probe Tracking Module feeds the Ash Twin Project.
+- **Rule transfer (learn at A, use at B):** the Quantum Grove teaches quantum rules the Moon needs. The Black Hole Forge teaches warp rules.
+- **A shared lock** (three rules, three places): the Quantum Shrine opens only once you've recalled three separate rules, each learned elsewhere.
+- **Characters who've been somewhere** and can say what they saw.
+- **The same fact told from two sides:** the Vessel's beacons and the Escape Pods both say the Vessel is in two places. You can find either first.
+
+### 6d. What to copy
+
+1. **One central question** the whole world feeds (theirs: "what is the Eye and how do we reach it?").
+2. **Each big area has its own theme and rules.** Collapse, ocean, maze, comet, frozen ruins. Each area teaches one new rule that is useful later elsewhere.
+3. **The rule is learned somewhere easy and tested somewhere dangerous.**
+4. **Side places give mood and character** and may carry one small hint, but never block progress.
+5. **Hints name the next place without describing the route.**
+6. **Every big area gets one failed attempt, one contradiction and one missing piece,** so players have questions.
+7. **A rule or hint can be learned from two places**, so players can find it in either order.
+
+### 6e. How this maps onto Lenhavu (draft)
+
+One shared thread runs through every chapter, and each chapter has its own theme and one new rule.
+
+| Chapter | Theme | New rule it teaches | Shared thread |
+|---|---|---|---|
+| 1. Coast and giant forest | Fire and shelter | Darkling light-lines, species keys, reading the fire's timing | The star's first fragment and the first sign of B'nuo Puxarorana |
+| 2 | Water and drowned places | Breath, currents, the Kash's depths | A second fragment, and a rumour of the king |
+| 3 | Height and wind | Fayran flight, thin air, weather | A third fragment and the king's court |
+| 4 | Stone and underground | Tar'ye strength, darkness, burrows | A fourth fragment and what the king hides |
+| 5 | The throne | Everything you learned, in combination | The last fragment and the ending |
+
+Open question: how many chapters we really want. That decides the number of fragments and endings.
+
+To do next: write the Chapter 1 cards (about 25 places: 3 or 4 big, 6 mid-size and the rest side pieces) using the hint types above.
