@@ -16,8 +16,9 @@ const MAP_RADIUS := 3500.0
 const MAP_SIZE := 512
 const FOG_DENSITY := 0.00045
 const NO_SEA := -100000.0
-## Where the form pillar stands: in the main clearing, near the edge of the trees. It faces the center.
-const PILLAR_AT := Vector2(20.0, 158.0)
+## Where the form pillar stands: in the main clearing, a short walk from the lake, facing it.
+const PILLAR_AT := Vector2(-20.0, 85.0)
+const PILLAR_YAW := 225.0
 
 var atmosphere: Atmosphere
 var chunks: ForestChunks
@@ -124,7 +125,7 @@ func _build_pillar() -> void:
 	pillar.water_area = ForestTerrain.in_lake
 	pillar.ground_at = ForestTerrain.height
 	pillar.position = Vector3(PILLAR_AT.x, ForestTerrain.height(PILLAR_AT.x, PILLAR_AT.y), PILLAR_AT.y)
-	pillar.rotation_degrees.y = 180.0
+	pillar.rotation_degrees.y = PILLAR_YAW
 	add_child(pillar)
 	_player.set_save_point(pillar.respawn_position())
 
@@ -147,12 +148,13 @@ func _build_lake() -> void:
 
 
 func _place_wisp() -> void:
-	var start := Vector2(4.0, 128.0)
+	# Start a few steps in front of the pillar, looking at it.
+	var front := Vector2(sin(deg_to_rad(PILLAR_YAW)), cos(deg_to_rad(PILLAR_YAW)))
+	var start := PILLAR_AT + front * 3.6
 	var ground := ForestTerrain.height(start.x, start.y)
-	_wisp.global_position = Vector3(start.x, ground + 5.0, start.y)
+	_wisp.global_position = Vector3(start.x, ground + 3.0, start.y)
 	_wisp.reset_physics_interpolation()
-	# Face the edge of the clearing, where the giants begin.
-	_rig.yaw = PI
+	_rig.yaw = deg_to_rad(PILLAR_YAW)
 	_rig.pitch = deg_to_rad(8.0)
 	_rig.snap_to_target()
 

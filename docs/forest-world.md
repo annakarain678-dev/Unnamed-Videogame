@@ -14,3 +14,7 @@ A greybox-plus world to fly around in as the wisp. Nothing here is final art.
 - **Not in yet:** water, buildings, creatures, weather, collision for bushes and rocks, weather changes (rain, storms), and a moon phase.
 
 To change the size or the rim, see the constants at the top of `scripts/forest/forest_terrain.gd`.
+
+## Fayran stamina (tuned for the big world)
+
+Flapping now costs about a quarter as much (about 70 seconds of nonstop flapping), gliding refills faster, and the flight ceiling is much higher. Flying within about 20 feet (6 m) of the ground refills energy quickly even while flapping, so a Fayran can cross the whole map by skimming low. See the constants near the top of `scripts/form_body.gd`.

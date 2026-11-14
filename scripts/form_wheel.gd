@@ -20,14 +20,18 @@ const ICONS := {
 	"Sen-Kash": "res://assets/symbols/sen_kash.png",
 	"Qoi-Kash": "res://assets/symbols/qoi_kash.png",
 }
-## How far the mouse must travel to move the highlight one place.
-const MOUSE_STEP := 60.0
+## How far the mouse must travel to move the highlight one place. While you travel, an arrow grows
+## toward the place it is about to jump to.
+const MOUSE_STEP := 170.0
+## After each jump the wheel rests for this long, ignoring the mouse, so it can't race round.
+const PAUSE := 0.4
 
 var is_open := false
 
 var _index := 0
 var _angle := 0.0  # Where the highlight is drawn now (radians, 0 = top, clockwise).
 var _mouse_travel := 0.0
+var _pause := 0.0
 var _textures := {}
 var _glyph: Texture2D
 var _canvas: Control
@@ -50,6 +54,7 @@ func open() -> void:
 	is_open = true
 	visible = true
 	_mouse_travel = 0.0
+	_pause = 0.0
 	_angle = _slot_angle(_index)
 
 
@@ -62,6 +67,9 @@ func _close() -> void:
 func _process(delta: float) -> void:
 	if not is_open:
 		return
+	_pause = maxf(0.0, _pause - delta)
+	# If you stop moving the mouse, the arrow slowly fades back.
+	_mouse_travel = move_toward(_mouse_travel, 0.0, 90.0 * delta)
 	# Glide the highlight round the short way.
 	var goal := _slot_angle(_index)
 	_angle += wrapf(goal - _angle, -PI, PI) * (1.0 - exp(-14.0 * delta))
@@ -73,13 +81,11 @@ func _input(event: InputEvent) -> void:
 		return
 	get_viewport().set_input_as_handled()
 	if event is InputEventMouseMotion:
-		_mouse_travel += (event as InputEventMouseMotion).relative.x
-		while _mouse_travel > MOUSE_STEP:
-			_mouse_travel -= MOUSE_STEP
-			_step(1)
-		while _mouse_travel < -MOUSE_STEP:
-			_mouse_travel += MOUSE_STEP
-			_step(-1)
+		if _pause <= 0.0:
+			_mouse_travel += (event as InputEventMouseMotion).relative.x
+			if absf(_mouse_travel) >= MOUSE_STEP:
+				_step(1 if _mouse_travel > 0.0 else -1)
+				_mouse_travel = 0.0
 	elif event.is_action_pressed("shine"):
 		_choose()  # Left Mouse (the shine control), or F.
 	elif event.is_action_pressed("move_right"):
@@ -108,6 +114,8 @@ func _input(event: InputEvent) -> void:
 
 func _step(direction: int) -> void:
 	_index = posmod(_index + direction, SPECIES.size())
+	_pause = PAUSE
+	_mouse_travel = 0.0
 
 
 func _choose() -> void:
@@ -138,6 +146,23 @@ func _draw_wheel() -> void:
 	var arc_center := _angle - PI * 0.5
 	_canvas.draw_arc(center, radius * 1.0, arc_center - 0.62, arc_center + 0.62, 28, Color(gold, 0.16), 46.0, true)
 	_canvas.draw_arc(center, radius * 1.0, arc_center - 0.5, arc_center + 0.5, 28, Color(gold, 0.55), 3.0, true)
+
+	# The arrow: as the mouse travels, it grows from the highlight toward the next place.
+	var pull := clampf(_mouse_travel / MOUSE_STEP, -1.0, 1.0)
+	if absf(pull) > 0.05 and _pause <= 0.0:
+		var span := TAU / SPECIES.size() * absf(pull)
+		var from_angle := arc_center + (0.0 if pull > 0.0 else -span)
+		var tip_angle := arc_center + span * signf(pull)
+		var arrow_radius := radius * 1.17
+		_canvas.draw_arc(center, arrow_radius, from_angle, from_angle + span, 24, Color(gold, 0.3 + 0.6 * absf(pull)), 5.0, true)
+		var radial := Vector2(cos(tip_angle), sin(tip_angle))
+		var tangent := Vector2(-radial.y, radial.x) * signf(pull)
+		var tip := center + radial * arrow_radius
+		_canvas.draw_colored_polygon(PackedVector2Array([
+			tip + tangent * 16.0,
+			tip - tangent * 3.0 + radial * 10.0,
+			tip - tangent * 3.0 - radial * 10.0,
+		]), Color(gold, 0.45 + 0.5 * absf(pull)))
 
 	for i in SPECIES.size():
 		var slot := _slot_angle(i)

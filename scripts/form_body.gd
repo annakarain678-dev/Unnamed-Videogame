@@ -53,14 +53,18 @@ const FLAP_CLIMB := 4.5
 const GLIDE_SINK := 1.2
 ## The world's height limit: above this the air is too thin to climb. It's set high; the real
 ## limit on flying is energy.
-const FLIGHT_CEILING := 120.0
+const FLIGHT_CEILING := 300.0
 ## Flight energy (0-100): beating your wings uses it; it comes back
 ## on the ground. (Later this becomes hunger.) Enough to climb well above the giant trees.
-const FLAP_COST := 6.0
+const FLAP_COST := 1.4
 ## Gliding low (below the thin air), energy slowly comes back, so a Fayran can glide a long way.
 ## Up in the thin air it doesn't.
-const GLIDE_RECOVERY := 3.0
-const THIN_AIR := 40.0
+const GLIDE_RECOVERY := 4.0
+const THIN_AIR := 150.0
+## Flying within this height of the ground (about 20 feet) refills the energy fast, even while
+## flapping, so a Fayran can cross a huge distance by staying low.
+const GROUND_EFFECT_HEIGHT := 6.1
+const GROUND_EFFECT_RECOVERY := 30.0
 ## Kash: how fast the head can swing round (radians per second). Sets how tight a U-turn is.
 const SERPENT_TURN_RATE := 3.5
 ## Kash float lower than walkers at the surface: just the shoulders and head out of the water.
@@ -456,10 +460,10 @@ func _steer(wanted: Vector3, delta: float) -> Vector3:
 
 
 ## How high the feet are above the ground below (a large number if there's no ground near).
-func _height_above_ground() -> float:
+func _height_above_ground(search := 3.0) -> float:
 	if is_on_floor():
 		return 0.0
-	var ray := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 3.0)
+	var ray := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * search)
 	ray.collision_mask = Layers.WORLD | Layers.THIN
 	ray.exclude = [get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
@@ -556,12 +560,16 @@ func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
 	_flight_speed += -look.y * FLIGHT_GRAVITY * delta
 	var drag := FLIGHT_DRAG * (0.35 if dive else 1.0) * (4.0 if throttle < -0.1 else 1.0)
 	_flight_speed -= drag * _flight_speed * _flight_speed * delta
+	var low := _height_above_ground(GROUND_EFFECT_HEIGHT + 1.0) < GROUND_EFFECT_HEIGHT
 	if is_flapping:
 		_flight_speed += FLIGHT_THRUST * (1.5 if is_dashing else 1.0) * delta
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
 	elif global_position.y < sea_level + THIN_AIR:
 		# Gliding low, energy slowly comes back (but never fully while airborne).
 		flight_energy = minf(80.0, flight_energy + GLIDE_RECOVERY * delta)
+	if low:
+		# Skimming the ground: energy refills quickly, whether flapping or gliding.
+		flight_energy = minf(100.0, flight_energy + GROUND_EFFECT_RECOVERY * delta)
 	# (Gliding up in the thin air, it neither drains nor comes back.)
 	_flight_speed = clampf(_flight_speed, 0.0, FLIGHT_TOP_SPEED)
 

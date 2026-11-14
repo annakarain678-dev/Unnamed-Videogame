@@ -210,6 +210,9 @@ func _leave_body() -> void:
 	_wisp.set_active(true)
 	_rig.set_target(_wisp, 0.0)
 	form_changed.emit(false)
+	# A form made at a pillar is only borrowed: leaving it, it simply goes away.
+	if body.is_in_group("pillar_forms"):
+		body.queue_free()
 
 
 func _nearest_statue() -> FormBody:
