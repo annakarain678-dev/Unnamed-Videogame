@@ -209,9 +209,48 @@ And it must tie into the main story. Example: "bring me iron for a sword" also t
 7. The deal scene.
 8. Dragon, loot and crafting.
 
-## 14. Open questions
+## 14. Decisions from the follow-up
 
-1. Is the **Black** shown at all in the game, or only in the ending text?
-2. Does the **dragon** hatch from the hidden egg (as before) or come from somewhere else?
-3. How many **settlements** in the demo region (suggested: one town and two small places)?
-4. Do we want **bounty posters** and a **jail** screen, or only the three-choice capture?
+- **The Black** is lore only. You hear rumours about it, and it's in the background. You never visit it, and nothing guarantees you go there. The endings only hint at it.
+- **The dragon egg** is a hidden find. Pro: a strong companion, and Fame goes up. Con: the Fame makes the hunting parties bigger, and the Crown wants it.
+- **Demo size:** one town and two small places, walled off by a story reason (suggestion: a collapsed pass or a closed border road that the full game opens). It's a test of the systems first. Whether to release it is decided later.
+- **Bounties and Fame are learned in the world.** You find out your bounty from gossip, a notice board you've learned to read, or records in a library. There is no menu that simply tells you.
+- **No disguises.** You are who you are. Fame cools down slowly with time, quiet acts, or acts the king would approve of.
+
+## 15. People see you differently (factions)
+
+Instead of one reputation, each faction reads the same record through its own lens.
+
+| Faction | Likes | Dislikes |
+|---|---|---|
+| **Commons** (peasants, farmers) | Virtue, mercy, free help | Cruelty, theft from the poor |
+| **Crown** (the king, his court, his guards) | Obedience, order, Guile that serves them | Virtue that defies them, Fame |
+| **Underworld** (bandits, smugglers) | Guile, bribes, no questions | Virtue that interferes, informing |
+| **Faithful and scholars** (optional) | Wisdom, rites, truth | Lies, desecration |
+
+**How it works, cheaply.** The game keeps one running count of tagged events (mercy shown, thefts, kills, bribes and so on). Each faction has a small list of weights. Its opinion of you is that count multiplied by its weights. So the same player is a saint to the Commons and a menace to the Crown, with no extra per-faction bookkeeping. This also lets the king see all your good deeds as bad ones.
+
+## 16. Every action has a pro and a con (and no farming)
+
+**The price rule.** Every choice pays one thing and costs another. For example:
+- Steal: Gold up, Virtue down, Suspicion up.
+- Bribe: escape, but the price goes up and the Crown learns you take bribes.
+- Fight head-on: Valor up, but you take damage and Fame goes up.
+- Snipe: no Fame, but Suspicion goes up.
+- Exorcise: Virtue up, but it takes time and you can make an enemy of a hardened victim.
+
+**Rules to stop stat-maxing and tricks:**
+1. **Earned once.** Every quest, encounter, person and place gives its stat reward **once**. Repeating it gives nothing ("already earned").
+2. **Outcomes, not actions.** "Survived an encounter" counts only when the encounter is *resolved* (defeated, talked down or fled, and the group stands down). Running in and out of a circle of men gives no reward.
+3. **Resolved groups stay resolved.** A resolved group doesn't respawn for several game days, and never gives stat rewards again. Respawning enemies may drop gold or materials, never stats.
+4. **Diminishing returns.** Repeating the same kind of act within a game day pays half as much each time. It recovers slowly.
+5. **Witnesses for Fame.** Fame only moves when someone saw it, and the same deed's Fame saturates.
+6. **The world learns.** Repeating a trick raises Suspicion, and guards start to expect it.
+7. **A finite stat budget.** All the stat gains available in the content are added up by a small test script. No stat can be maxed without doing most of the content, and there is no unlimited source.
+
+## 17. Open questions
+
+1. Where in the demo does the border wall sit, and what is the story reason?
+2. Should the Faithful and scholars be a fourth faction in the demo, or later?
+3. How fast should Fame cool down?
+4. What does the dragon's element choice look like (a shrine, a gift, a quest)?
