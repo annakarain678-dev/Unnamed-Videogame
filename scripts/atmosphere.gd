@@ -23,6 +23,8 @@ var cycle := DayNightCycle.new()
 @export var spirit_fade_speed := 3.0
 ## How quickly the underwater look fades in or out at the surface.
 @export var water_fade_speed := 10.0
+## How thick the haze is in the everyday world (a big, open world wants thinner haze).
+var normal_fog_density := 0.0012
 
 const NORMAL_FOG_DENSITY := 0.0012
 const NORMAL_FOG_SKY_AFFECT := 0.3
@@ -171,7 +173,7 @@ func _apply(depth := 0.0) -> void:
 	var water_density := lerpf(SHALLOW_WATER_DENSITY, DEEP_WATER_DENSITY, clampf(depth / DEEP_DEPTH, 0.0, 1.0))
 	var water_color := WATER_COLOR.lerp(SPIRIT_FOG, s * 0.5)
 	environment.fog_light_color = (now["fog"] as Color).lerp(SPIRIT_FOG, s).lerp(water_color, w)
-	environment.fog_density = lerpf(lerpf(NORMAL_FOG_DENSITY, SPIRIT_FOG_DENSITY, s), water_density, w)
+	environment.fog_density = lerpf(lerpf(normal_fog_density, SPIRIT_FOG_DENSITY, s), water_density, w)
 	environment.fog_sky_affect = lerpf(lerpf(NORMAL_FOG_SKY_AFFECT, 0.6, s), 1.0, w)
 
 	# Sun and moon follow the clock; in spirit view they fade out and the spirit light takes over.

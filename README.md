@@ -23,3 +23,20 @@ Or just double-click the **Lenhavu** launcher on the Desktop.
 | Right Mouse (hold) | Draw a line of light (inside a heart, darklings can't cross it) | Push a boulder (only a Tar'ye can move it) |
 | Mouse | Look | Look |
 | Esc | Free the mouse (click to grab it again) | |
+
+## The giant forest (the scene that opens now)
+
+You start as the wisp, in daylight, in a clearing at the edge of a redwood-sized forest. The basin is about
+4 to 5 km across, ringed by an uneven wall of cliffs and mountains. It has only land, trees, bushes, ferns,
+grass and rocks, plus several open clearings kept free for buildings (marked yellow on the map).
+
+| Key | What it does |
+|---|---|
+| 1 to 5 | Fly faster (1 = normal, 5 = about 50 times, for crossing the map) |
+| M | Map. Click anywhere to fly there |
+| V | Spirit view on or off |
+| [ and ] | Move the clock back or forward an hour |
+| T | Time-lapse the day and night |
+| H | Hide the text on screen |
+
+The old test island is still in `scenes/main.tscn`. To play it, set it as the main scene in Project Settings.
