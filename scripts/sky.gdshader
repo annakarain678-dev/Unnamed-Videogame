@@ -14,6 +14,12 @@ uniform float moon_amount = 0.0;
 // 0 = no stars (daytime, or spirit view), 1 = a full starry night.
 uniform float star_amount = 0.0;
 
+// Clouds. cloud_cover 0 = clear sky, 1 = overcast. cloud_amount fades them all (0 in spirit view).
+uniform float cloud_cover = 0.5;
+uniform float cloud_amount = 1.0;
+uniform vec3 cloud_light : source_color = vec3(1.0, 0.97, 0.92);
+uniform vec3 cloud_dark : source_color = vec3(0.52, 0.58, 0.70);
+
 float hash(vec3 p) {
 	p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
 	p *= 17.0;
@@ -35,6 +41,34 @@ float stars(vec3 dir) {
 	return smoothstep(size, 0.0, d) * twinkle * (0.5 + hash(cell + 2.2));
 }
 
+float hash2(vec2 p) {
+	p = fract(p * vec2(123.34, 456.21));
+	p += dot(p, p + 45.32);
+	return fract(p.x * p.y);
+}
+
+float value_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash2(i);
+	float b = hash2(i + vec2(1.0, 0.0));
+	float c = hash2(i + vec2(0.0, 1.0));
+	float d = hash2(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 4; i++) {
+		v += a * value_noise(p);
+		p = p * 2.03 + vec2(17.1, 9.2);
+		a *= 0.5;
+	}
+	return v;
+}
+
 void sky() {
 	vec3 dir = EYEDIR;
 	float up = dir.y;
@@ -42,6 +76,8 @@ void sky() {
 	vec3 color;
 	if (up >= 0.0) {
 		color = mix(sky_horizon, sky_top, pow(up, 0.6));
+		// A soft band of haze hugging the horizon.
+		color = mix(color, sky_horizon * 1.04, exp(-up * 9.0) * 0.45);
 	} else {
 		color = mix(sky_horizon, ground_bottom, clamp(-up * 4.0, 0.0, 1.0));
 	}
@@ -56,6 +92,24 @@ void sky() {
 	float sun_disc = smoothstep(0.99985, 0.9999, to_sun);
 	float sun_glow = pow(max(to_sun, 0.0), 300.0) * 0.4 + pow(max(to_sun, 0.0), 20.0) * 0.08;
 	color += sun_color * (sun_disc * 12.0 + sun_glow) * sun_amount;
+	// A wide, warm glow around the sun, strongest near the horizon (golden hour).
+	color += sun_color * pow(max(to_sun, 0.0), 5.0) * 0.22 * sun_amount * (1.0 - clamp(up, 0.0, 1.0) * 0.6);
+
+	// Clouds: drifting, soft-edged, lit from the sun's side.
+	if (up > 0.0 && cloud_amount > 0.0 && cloud_cover > 0.0) {
+		vec2 p = dir.xz / (up + 0.18) * 0.9 + vec2(TIME * 0.006, TIME * 0.002);
+		float density = fbm(p * 1.3);
+		float lo = 1.0 - cloud_cover * 0.75;
+		float shape = smoothstep(lo, lo + 0.22, density);
+		// Light the side facing the sun: compare the density a little toward the sun.
+		vec2 toward = normalize(sun_direction.xz + vec2(0.0001)) * 0.06;
+		float lit = clamp((density - fbm(p * 1.3 + toward)) * 5.0 + 0.5, 0.0, 1.0);
+		vec3 cloud_color = mix(cloud_dark, cloud_light, lit);
+		// Thin edges let the sky through; clouds melt into the haze near the horizon.
+		float fade = smoothstep(0.0, 0.22, up);
+		float alpha = shape * fade * cloud_amount * 0.92;
+		color = mix(color, cloud_color, alpha);
+	}
 
 	// Moon: a pale disc with a few darker patches, and a faint halo.
 	vec3 moon_dir = normalize(moon_direction);

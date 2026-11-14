@@ -40,7 +40,8 @@ void fragment() {
 	vec3 ground = mix(open_ground, floor_ground, smoothstep(0.1, 0.8, forest));
 
 	// Rock, in warm layers (strata), on steeper ground.
-	float strata = sin(wpos.y * 0.5 + n1 * 7.0) * 0.5 + 0.5;
+	// Layers fade out with distance (they would shimmer into stripes).
+	float strata = mix(sin(wpos.y * 0.5 + n1 * 7.0) * 0.5 + 0.5, 0.5, smoothstep(150.0, 900.0, dist));
 	vec3 rock = mix(rock_dark, rock_light, strata * 0.6 + n3 * 0.4);
 	float rock_amount = smoothstep(0.2, 0.38, slope + (n2 - 0.5) * 0.12);
 	vec3 albedo = mix(ground, rock, rock_amount);

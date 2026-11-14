@@ -13,15 +13,15 @@ var day := 1
 ## Which way the sun travels across the sky (degrees around the vertical).
 const SUN_PATH_YAW := -35.0
 
-const DAY_SKY_TOP := Color(0.22, 0.45, 0.80)
-const DAY_SKY_HORIZON := Color(0.78, 0.80, 0.78)
-const DAY_FOG := Color(0.72, 0.80, 0.90)
-const DAY_SUN := Color(1.0, 0.95, 0.85)
+const DAY_SKY_TOP := Color(0.13, 0.35, 0.80)
+const DAY_SKY_HORIZON := Color(0.78, 0.82, 0.82)
+const DAY_FOG := Color(0.80, 0.78, 0.68)
+const DAY_SUN := Color(1.0, 0.94, 0.80)
 
-const DUSK_SKY_TOP := Color(0.20, 0.24, 0.48)
-const DUSK_SKY_HORIZON := Color(0.95, 0.58, 0.38)
-const DUSK_FOG := Color(0.68, 0.52, 0.48)
-const DUSK_SUN := Color(1.0, 0.55, 0.30)
+const DUSK_SKY_TOP := Color(0.26, 0.28, 0.52)
+const DUSK_SKY_HORIZON := Color(1.0, 0.56, 0.28)
+const DUSK_FOG := Color(0.80, 0.55, 0.40)
+const DUSK_SUN := Color(1.0, 0.52, 0.24)
 
 const NIGHT_SKY_TOP := Color(0.01, 0.015, 0.05)
 const NIGHT_SKY_HORIZON := Color(0.05, 0.07, 0.14)
@@ -67,6 +67,11 @@ func sample() -> Dictionary:
 		"fog": NIGHT_FOG.lerp(DAY_FOG, daylight).lerp(DUSK_FOG, dusk),
 		"sun_color": DAY_SUN.lerp(DUSK_SUN, dusk),
 		"sun_energy": SUN_ENERGY * smoothstep(-0.02, 0.15, h),
+		# Clouds: white by day, golden or rosy at sunrise and sunset, near black at night.
+		"cloud_light": Color(0.14, 0.16, 0.26).lerp(Color(1.0, 0.97, 0.90), daylight).lerp(DUSK_SUN.lightened(0.15), dusk * 0.85),
+		"cloud_dark": Color(0.03, 0.04, 0.09).lerp(Color(0.50, 0.55, 0.66), daylight).lerp(Color(0.52, 0.32, 0.36), dusk * 0.7),
+		# Mist: the forest haze thickens at dawn and dusk.
+		"mist": 0.65 + 2.2 * dusk,
 		"moon_color": MOON,
 		"moon_energy": MOON_ENERGY * smoothstep(-0.02, 0.15, -h),
 		# How much of the moon disc shows (it fades in as it rises clear of the horizon glow).

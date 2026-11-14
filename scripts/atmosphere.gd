@@ -25,6 +25,8 @@ var cycle := DayNightCycle.new()
 @export var water_fade_speed := 10.0
 ## How thick the haze is in the everyday world (a big, open world wants thinner haze).
 var normal_fog_density := 0.0012
+## 0 = clear sky, 1 = overcast.
+var cloud_cover := 0.7
 
 const NORMAL_FOG_DENSITY := 0.0012
 const NORMAL_FOG_SKY_AFFECT := 0.3
@@ -173,7 +175,7 @@ func _apply(depth := 0.0) -> void:
 	var water_density := lerpf(SHALLOW_WATER_DENSITY, DEEP_WATER_DENSITY, clampf(depth / DEEP_DEPTH, 0.0, 1.0))
 	var water_color := WATER_COLOR.lerp(SPIRIT_FOG, s * 0.5)
 	environment.fog_light_color = (now["fog"] as Color).lerp(SPIRIT_FOG, s).lerp(water_color, w)
-	environment.fog_density = lerpf(lerpf(normal_fog_density, SPIRIT_FOG_DENSITY, s), water_density, w)
+	environment.fog_density = lerpf(lerpf(normal_fog_density * float(now["mist"]), SPIRIT_FOG_DENSITY, s), water_density, w)
 	environment.fog_sky_affect = lerpf(lerpf(NORMAL_FOG_SKY_AFFECT, 0.6, s), 1.0, w)
 
 	# Sun and moon follow the clock; in spirit view they fade out and the spirit light takes over.
@@ -195,6 +197,10 @@ func _apply(depth := 0.0) -> void:
 	_sky_material.set_shader_parameter("moon_direction", _moon.global_basis.z)
 	_sky_material.set_shader_parameter("moon_amount", float(now["moon_amount"]) * (1.0 - s))
 	_sky_material.set_shader_parameter("star_amount", float(now["stars"]) * (1.0 - s))
+	_sky_material.set_shader_parameter("cloud_cover", cloud_cover)
+	_sky_material.set_shader_parameter("cloud_amount", 1.0 - s)
+	_sky_material.set_shader_parameter("cloud_light", now["cloud_light"])
+	_sky_material.set_shader_parameter("cloud_dark", now["cloud_dark"])
 	_moon.light_color = now["moon_color"]
 	_moon.light_energy = now["moon_energy"] * (1.0 - s)
 	_moon.visible = _moon.light_energy > 0.001

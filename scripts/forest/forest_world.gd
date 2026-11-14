@@ -79,7 +79,7 @@ func _build_environment() -> void:
 	environment.fog_light_color = Color(0.72, 0.80, 0.90)
 	environment.fog_density = FOG_DENSITY
 	environment.fog_sky_affect = 0.3
-	environment.fog_aerial_perspective = 0.5
+	environment.fog_aerial_perspective = 0.2
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
