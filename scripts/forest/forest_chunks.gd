@@ -5,7 +5,7 @@ extends Node3D
 ## (see ForestBuilder) and turned into nodes here, a couple per frame, so flying never stutters.
 
 const LEVELS := 7                  # levels 0..6; the top one is 8 km across, covering the whole world
-const SPLIT_K := 2.2               # bigger = more detail further out
+const SPLIT_K := 1.5               # bigger = more detail further out
 const WORLD_EDGE := 3500.0         # nothing is generated further from the center than this
 const MAX_TASKS := 3               # background builds at once
 const MAX_LEAVES := 800            # leaves kept in memory (hidden ones are recycled)

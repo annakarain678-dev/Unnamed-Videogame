@@ -32,6 +32,12 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(1150.0, 1000.0, 65.0),
 ]
 
+## A small lake in the main clearing, for swimming: Vector3(x, z, radius) (z in .y). It is carved
+## into the flat ground, so its water level is just below the clearing.
+const LAKE := Vector3(-70.0, 35.0, 48.0)
+const LAKE_DEPTH := 5.5
+
+static var _lake_level := 0.0
 static var _ready_flag := false
 static var _broad: FastNoiseLite
 static var _ridge: FastNoiseLite
@@ -68,6 +74,7 @@ static func setup() -> void:
 	for i in CLEARINGS.size():
 		var c := CLEARINGS[i]
 		_clearing_heights[i] = _floor_height(c.x, c.y)
+	_lake_level = _clearing_heights[0] - 0.7
 	_ready_flag = true
 
 
@@ -131,7 +138,29 @@ static func height(x: float, z: float) -> float:
 		if d < c.z * 2.3:
 			var w := 1.0 - smoothstep(c.z, c.z * 2.2, d)
 			h = lerpf(h, _clearing_heights[i] + _micro.get_noise_2d(x, z) * 0.35, w)
+	var lx := x - LAKE.x
+	var lz := z - LAKE.y
+	var ld := sqrt(lx * lx + lz * lz)
+	if ld < LAKE.z * 1.5:
+		var bowl: float
+		if ld < LAKE.z:
+			bowl = _lake_level - LAKE_DEPTH * (1.0 - (ld * ld) / (LAKE.z * LAKE.z))
+		else:
+			bowl = lerpf(_lake_level, h, smoothstep(LAKE.z, LAKE.z * 1.45, ld))
+		h = minf(h, bowl)
 	return h
+
+
+## The height of the lake's surface.
+static func lake_level() -> float:
+	return _lake_level
+
+
+## Is this spot over the lake's water?
+static func in_lake(x: float, z: float) -> bool:
+	var lx := x - LAKE.x
+	var lz := z - LAKE.y
+	return lx * lx + lz * lz < LAKE.z * LAKE.z * 1.1
 
 
 ## How steep the ground is: 0 = flat, 1 = a vertical wall. (1 minus the normal's up component.)

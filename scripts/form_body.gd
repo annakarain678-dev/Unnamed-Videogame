@@ -28,6 +28,8 @@ extends CharacterBody3D
 @export var fall_gravity_scale := 3.0
 @export var swim_vertical_speed := 2.0
 @export var sea_level := 0.0
+## If set, water exists only where this returns true for (x, z) (a lake, not a whole sea).
+var water_area := Callable()
 ## Which way the statue faces at the start, in degrees (0 = facing north, 180 = south).
 @export var facing_degrees := 0.0
 ## Where the camera looks, measured up from the feet.
@@ -481,6 +483,13 @@ func _float_height() -> float:
 	return sea_level - (SERPENT_FLOAT_DEPTH if serpent else CHEST + 0.05)
 
 
+## The water's surface under this body, or far below the world where there is no water.
+func _water_level() -> float:
+	if water_area.is_valid() and not water_area.call(global_position.x, global_position.z):
+		return -100000.0
+	return sea_level
+
+
 func _report_lost(reason: String) -> void:
 	lost.emit(reason)
 	get_tree().call_group("player_controller", "on_body_lost", self, reason)
@@ -639,9 +648,9 @@ func _walk(delta: float, direction: Vector3, jump: bool) -> void:
 func _update_swimming() -> void:
 	if not possessed:
 		_swimming = false
-	elif not _swimming and global_position.y + CHEST < sea_level:
+	elif not _swimming and global_position.y + CHEST < _water_level():
 		_swimming = true
-	elif _swimming and is_on_floor() and global_position.y + CHEST > sea_level + 0.35:
+	elif _swimming and is_on_floor() and global_position.y + CHEST > _water_level() + 0.35:
 		# Only once you're standing in the shallows (bobbing up at the surface doesn't count).
 		_swimming = false
 

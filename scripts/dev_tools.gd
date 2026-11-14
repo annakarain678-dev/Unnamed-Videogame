@@ -13,6 +13,8 @@ extends Node
 ##   --press=interact@1.0,interact@4 tap these controls at these times (seconds)
 ##   --release=move_forward@5        let go of a held control at this time
 ##   --print-body-height=10          print the controlled body's height each second
+##   --zoom=2.5                      camera distance behind the wisp (default 6)
+##   --day                           (forest) see the world in daylight as the wisp
 
 var _screenshot_path := ""
 var _delay := 2.5
@@ -23,6 +25,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--") and "=" in arg:
 			options[arg.get_slice("=", 0).trim_prefix("--")] = arg.get_slice("=", 1)
+		elif arg == "--day":
+			options["day"] = "1"
 
 	if options.is_empty():
 		return
@@ -46,6 +50,16 @@ func _apply_setup(options: Dictionary) -> void:
 		wisp.reset_physics_interpolation()
 		if rig:
 			rig.global_position = wisp.global_position
+
+	if options.has("zoom"):
+		var arm := scene.find_child("SpringArm3D", true, false) as SpringArm3D
+		if arm:
+			arm.spring_length = float(options["zoom"])
+
+	if options.has("day"):
+		var forest := scene as ForestWorld
+		if forest:
+			forest.set_day_preview(true)
 
 	if options.has("hour"):
 		var atmosphere := scene.find_child("Atmosphere", true, false) as Atmosphere

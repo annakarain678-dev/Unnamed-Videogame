@@ -7,6 +7,10 @@ A greybox-plus world to fly around in as the wisp. Nothing here is final art.
 - **Plants:** redwood-sized giants (about 95 to 170 m tall), smaller conifers beneath them, bushes, sword ferns, grass and boulders. Open meadows in clearings, red-brown needle duff under the trees.
 - **How it's built:** all from code, in `scripts/forest/`. The land is a pure function of (x, z) (`forest_terrain.gd`), streamed in patches that get coarser with distance (`forest_chunks.gd`, `forest_builder.gd`), with shaders in `shaders/forest_*.gdshader`.
 - **Sky:** a warm, hazy day with drifting clouds (`cloud_cover` in `atmosphere.gd`, 0 clear to 1 overcast), a golden-orange sunset with a wide sun glow and thicker forest mist at dawn and dusk, and a starry night with clouds. Colors live at the top of `day_night_cycle.gd`; the clouds are drawn in `sky.gdshader`.
+- **Form pillar:** a ruined obelisk about 2.1 m tall near the trees (`scripts/form_pillar.gd`, `shaders/forest_pillar.gdshader`). It carries the **form glyph**, a ring around a diamond (`assets/symbols/form_glyph.png`). Reuse that glyph on anything else that offers forms. Its wheel is `scripts/form_wheel.gd`, with the five species symbols in `assets/symbols/`.
+- **Lake:** a small lake carved into the main clearing. Water exists only there (`ForestTerrain.in_lake`), so bodies and the camera only swim or go underwater inside it.
+- **Detail distance:** full-detail trees only within about 400 m, simpler ones out to about 1.5 km, then simple cones. Raise or lower `SPLIT_K` in `forest_chunks.gd`.
+- **Known issues, parked for later:** a few trees float on steep ground; a trunk's collision doesn't follow its flared foot; cliffs are smooth; the pillar's look is a first pass.
 - **Not in yet:** water, buildings, creatures, weather, collision for bushes and rocks, weather changes (rain, storms), and a moon phase.
 
 To change the size or the rim, see the constants at the top of `scripts/forest/forest_terrain.gd`.

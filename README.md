@@ -34,9 +34,16 @@ grass and rocks, plus several open clearings kept free for buildings (marked yel
 |---|---|
 | 1 to 5 | Fly faster (1 = normal, 5 = about 50 times, for crossing the map) |
 | M | Map. Click anywhere to fly there |
-| V | Spirit view on or off |
+| V | Daylight preview as the wisp (the wisp normally sees in spirit view) |
 | [ and ] | Move the clock back or forward an hour |
 | T | Time-lapse the day and night |
 | H | Hide the text on screen |
 
 The old test island is still in `scenes/main.tscn`. To play it, set it as the main scene in Project Settings.
+
+### The form pillar and the lake
+
+- Fly to the ruined stone **pillar** at the edge of the trees. As the wisp, press **Right Mouse** beside it to open the **wheel of forms**.
+- A highlight travels round the wheel: move the mouse right or left, scroll, or press A / D (or Q / E). **Left Click** picks a form; **Right Click** closes it.
+- The pillar is also your **save point**. If a body drowns or crashes, it is gone for good and the wisp wakes at the last pillar it used.
+- A small **lake** in the main clearing is for trying out swimming (Human, Tar'ye, Sen-Kash, Qoi-Kash; a Fayran can't swim).

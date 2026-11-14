@@ -5,15 +5,19 @@ extends Node3D
 ## in the main clearing.
 ##
 ## Keys:  1-5 fly faster (1 = normal, 5 = about 50x, for crossing the map)    M map (click to fly there)
-##        V spirit view on/off    [ and ] change the hour    T time-lapse on/off    H hide this text
+##        V daylight preview (see the world as a body does)    [ and ] change the hour
+##        T time-lapse on/off    H hide this text
+## As the wisp, go to the stone pillar and press Right Mouse to pick a form.
 
 const START_HOUR := 10.0
 const WISP_CEILING := 520.0
 const SPEEDS: Array[float] = [1.0, 3.0, 8.0, 20.0, 50.0]
 const MAP_RADIUS := 3500.0
 const MAP_SIZE := 512
-const FOG_DENSITY := 0.00035
+const FOG_DENSITY := 0.00045
 const NO_SEA := -100000.0
+## Where the form pillar stands: in the main clearing, near the edge of the trees. It faces the center.
+const PILLAR_AT := Vector2(20.0, 158.0)
 
 var atmosphere: Atmosphere
 var chunks: ForestChunks
@@ -25,7 +29,8 @@ var _base_speed := 7.0
 var _base_dash := 10.5
 var _base_vertical := 4.5
 var _speed_index := 0
-var _spirit := false
+var _day_preview := false
+var _player: PlayerController
 var _timelapse := false
 
 var _hud: Label
@@ -53,8 +58,12 @@ func _ready() -> void:
 	_wisp.max_height = WISP_CEILING
 	_wisp.sea_level = NO_SEA
 
+	_player = $PlayerController
+	_wisp.sea_level = ForestTerrain.lake_level()
 	_build_environment()
 	_place_wisp()
+	_build_lake()
+	_build_pillar()
 
 	chunks = ForestChunks.new()
 	chunks.name = "Chunks"
@@ -87,18 +96,18 @@ func _build_environment() -> void:
 	atmosphere = Atmosphere.new()
 	atmosphere.name = "Atmosphere"
 	atmosphere.environment = environment
-	atmosphere.sea_level = NO_SEA
+	atmosphere.sea_level = ForestTerrain.lake_level()
+	atmosphere.water_area = ForestTerrain.in_lake
 	atmosphere.normal_fog_density = FOG_DENSITY
 	add_child(atmosphere)
 	atmosphere.cycle.hour = START_HOUR
-	# You start as the wisp, but in daylight, so you can see the forest. (V toggles spirit view.)
-	atmosphere.spirit_amount = 0.0
-	atmosphere.set_spirit(false)
+	# The wisp sees in spirit view; bodies see the everyday world. (V previews daylight as the wisp.)
+	atmosphere.spirit_amount = 1.0
+	atmosphere.set_spirit(true)
 	var sun := atmosphere.get_node("Sun") as DirectionalLight3D
 	sun.directional_shadow_max_distance = 450.0
 
-	var player: PlayerController = $PlayerController
-	player.form_changed.connect(func(in_body: bool) -> void: atmosphere.set_spirit(not in_body and _spirit))
+	_player.form_changed.connect(func(_in_body: bool) -> void: _update_spirit())
 
 	# Far mountains need a far camera.
 	var camera := _rig.get_node("SpringArm3D/Camera3D") as Camera3D
@@ -106,8 +115,39 @@ func _build_environment() -> void:
 	camera.near = 0.08
 
 
+## The pillar where the wisp changes form (and wakes up if a body is lost).
+func _build_pillar() -> void:
+	var pillar := FormPillar.new()
+	pillar.name = "FormPillar"
+	pillar.kit = kit
+	pillar.sea_level = ForestTerrain.lake_level()
+	pillar.water_area = ForestTerrain.in_lake
+	pillar.ground_at = ForestTerrain.height
+	pillar.position = Vector3(PILLAR_AT.x, ForestTerrain.height(PILLAR_AT.x, PILLAR_AT.y), PILLAR_AT.y)
+	pillar.rotation_degrees.y = 180.0
+	add_child(pillar)
+	_player.set_save_point(pillar.respawn_position())
+
+
+## The surface of the lake in the main clearing. (The bowl itself is carved into the terrain.)
+func _build_lake() -> void:
+	var plane := PlaneMesh.new()
+	var side := ForestTerrain.LAKE.z * 3.2
+	plane.size = Vector2(side, side)
+	var material := ShaderMaterial.new()
+	material.shader = load("res://shaders/forest_water.gdshader")
+	material.set_shader_parameter("noise_tex", kit.noise_texture)
+	var water := MeshInstance3D.new()
+	water.name = "Lake"
+	water.mesh = plane
+	water.material_override = material
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	water.position = Vector3(ForestTerrain.LAKE.x, ForestTerrain.lake_level(), ForestTerrain.LAKE.y)
+	add_child(water)
+
+
 func _place_wisp() -> void:
-	var start := Vector2(0.0, 110.0)
+	var start := Vector2(4.0, 128.0)
 	var ground := ForestTerrain.height(start.x, start.y)
 	_wisp.global_position = Vector3(start.x, ground + 5.0, start.y)
 	_wisp.reset_physics_interpolation()
@@ -153,8 +193,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key == KEY_M:
 		_toggle_map()
 	elif key == KEY_V:
-		_spirit = not _spirit
-		atmosphere.set_spirit(_spirit)
+		_day_preview = not _day_preview
+		_update_spirit()
 	elif key == KEY_BRACKETLEFT:
 		atmosphere.cycle.hour = fposmod(atmosphere.cycle.hour - 1.0, 24.0)
 	elif key == KEY_BRACKETRIGHT:
@@ -165,6 +205,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key == KEY_H:
 		_hud.visible = not _hud.visible
 		_help.visible = _hud.visible
+
+
+func set_day_preview(on: bool) -> void:
+	_day_preview = on
+	_update_spirit()
+
+
+func _update_spirit() -> void:
+	atmosphere.set_spirit(_player.current_body == null and not _day_preview)
 
 
 func _set_speed(index: int) -> void:
@@ -182,7 +231,7 @@ func _build_hud() -> void:
 	layer.layer = 2
 	add_child(layer)
 	_help = _label(layer, Vector2(16.0, 12.0))
-	_help.text = "1-5 speed   M map   V spirit view   [ ] hour   T time-lapse   H hide"
+	_help.text = "1-5 speed   M map   V daylight preview   [ ] hour   T time-lapse   H hide"
 	_hud = _label(layer, Vector2(16.0, 38.0))
 
 

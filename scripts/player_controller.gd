@@ -16,6 +16,12 @@ var current_body: FormBody = null
 ## True while the wisp is inside a possessed heart, fighting a darkling (see HeartChase).
 var in_heart := false
 
+## Where the wisp wakes up when a body is lost (the last form pillar it used).
+var respawn_point := Vector3.ZERO
+var has_respawn := false
+
+var _wheel: FormWheel
+var _wheel_pillar: FormPillar
 var _prompt: Label
 var _energy: ProgressBar
 var _breath: ProgressBar
@@ -29,6 +35,10 @@ var _notice_left := 0.0
 func _ready() -> void:
 	add_to_group("player_controller")
 	_build_prompt()
+	_wheel = FormWheel.new()
+	add_child(_wheel)
+	_wheel.chosen.connect(_on_form_chosen)
+	_wheel.closed.connect(_on_wheel_closed)
 
 
 ## Puts the wisp into `body`, bringing it to life.
@@ -36,7 +46,20 @@ func enter_body(body: FormBody) -> void:
 	_enter_body(body)
 
 
+## Remembers where the wisp should wake up if a body is lost.
+func set_save_point(at: Vector3) -> void:
+	respawn_point = at
+	has_respawn = true
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	# As the wisp, Right Mouse beside a form pillar opens its wheel of forms.
+	if event.is_action_pressed("draw") and current_body == null and not in_heart and not _wheel.is_open:
+		var pillar := _nearest_pillar()
+		if pillar:
+			_open_wheel(pillar)
+			get_viewport().set_input_as_handled()
+			return
 	if not event.is_action_pressed("toggle_body"):
 		return
 	if in_heart:
@@ -58,15 +81,61 @@ func _unhandled_input(event: InputEvent) -> void:
 ## restarts the chapter's loop.)
 func on_body_lost(body: FormBody, reason: String) -> void:
 	if reason == "drowned" and body == current_body:
-		_leave_body()
-		body.return_home()
-		_notice("You drowned. The %s statue is back on its plinth." % body.species)
+		_lose_body(body, "You drowned.", "The %s statue is back on its plinth." % body.species)
 	elif reason == "crashed" and body == current_body:
-		_leave_body()
-		body.return_home()
-		_notice("You hit the ground too hard and shattered. The %s statue is back on its plinth." % body.species)
+		_lose_body(body, "You hit the ground too hard and shattered.", "The %s statue is back on its plinth." % body.species)
 	elif reason == "shattered":
 		_notice("The %s statue shattered from the fall. It's back on its plinth." % body.species)
+
+
+## You lose a body for good (the sacrifice has a price): a form made at a pillar is gone, and the wisp
+## wakes at the last pillar it used. (A statue from the old test island just goes back to its plinth.)
+func _lose_body(body: FormBody, what_happened: String, statue_note: String) -> void:
+	_leave_body()
+	if body.is_in_group("pillar_forms"):
+		body.queue_free()
+		if has_respawn:
+			_wisp.global_position = respawn_point
+			_wisp.velocity = Vector3.ZERO
+			_wisp.reset_physics_interpolation()
+			_rig.snap_to_target()
+		_notice("%s You wake at the last pillar." % what_happened)
+	else:
+		body.return_home()
+		_notice("%s %s" % [what_happened, statue_note])
+
+
+func _nearest_pillar() -> FormPillar:
+	var nearest: FormPillar = null
+	var nearest_distance := 4.5
+	for node in get_tree().get_nodes_in_group("form_pillars"):
+		var pillar := node as FormPillar
+		var distance := _wisp.global_position.distance_to(pillar.global_position + Vector3.UP * 1.0)
+		if distance < nearest_distance:
+			nearest = pillar
+			nearest_distance = distance
+	return nearest
+
+
+func _open_wheel(pillar: FormPillar) -> void:
+	_wheel_pillar = pillar
+	# Hold the wisp still while the wheel is open.
+	_wisp.velocity = Vector3.ZERO
+	_wisp.set_physics_process(false)
+	_wheel.open()
+
+
+func _on_form_chosen(species: String) -> void:
+	if _wheel_pillar == null:
+		return
+	set_save_point(_wheel_pillar.respawn_position())
+	_enter_body(_wheel_pillar.spawn_form(species))
+
+
+func _on_wheel_closed() -> void:
+	# If no form was chosen, the wisp is free again. (Entering a body keeps it switched off.)
+	if current_body == null:
+		_wisp.set_physics_process(true)
 
 
 func _notice(text: String) -> void:
@@ -98,7 +167,11 @@ func _process(delta: float) -> void:
 			_prompt.text = "%s  ·  Leave the %s body" % [key, current_body.species]
 	else:
 		var statue := _nearest_statue()
-		if statue == null:
+		if _wheel.is_open:
+			_prompt.text = ""
+		elif statue == null and _nearest_pillar() != null:
+			_prompt.text = "Right Mouse  ·  Change form"
+		elif statue == null:
 			_prompt.text = ""
 		elif statue.haunted:
 			_prompt.text = "A darkling possesses this statue  ·  Hold Left Mouse to shine"

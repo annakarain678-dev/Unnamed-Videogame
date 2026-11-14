@@ -74,17 +74,17 @@ static func build(level: int, ix: int, iz: int) -> Dictionary:
 
 	var batches := {}
 	var trunks := PackedFloat32Array()
-	if level <= 3:
+	if level <= 2:
 		_scatter_giants(batches, trunks, x0, z0, size, level)
 	elif level <= 6:
 		_scatter_far(batches, x0, z0, size, level)
-	if level <= 1:
+	if level == 0:
 		_scatter_understory(batches, trunks, x0, z0, size)
 		_scatter_bushes(batches, x0, z0, size)
-		_scatter_rocks(batches, x0, z0, size, ROCK_CELL, 0.5, 2.0, 0.12)
-	if level == 0:
 		_scatter_ferns(batches, x0, z0, size)
 		_scatter_grass(batches, x0, z0, size)
+	if level <= 1:
+		_scatter_rocks(batches, x0, z0, size, ROCK_CELL, 0.5, 2.0, 0.12)
 	if level <= 2:
 		_scatter_rocks(batches, x0, z0, size, BOULDER_CELL, 3.0, 9.0, 0.35)
 
@@ -242,16 +242,16 @@ static func _scatter_giants(batches: Dictionary, trunks: PackedFloat32Array, x0:
 			var yaw := ForestTerrain.rnd(i, j, 6) * TAU
 			var shade := 0.88 + 0.24 * ForestTerrain.rnd(i, j, 7)
 			var tint := Color(shade, shade, shade, 1.0)
-			var mesh_name := "giant_mid"
-			if level <= 1:
+			var mesh_name := "giant_low"
+			if level == 0:
 				mesh_name = "giant_a" if ForestTerrain.rnd(i, j, 8) < 0.5 else "giant_b"
-			elif level == 3:
-				mesh_name = "giant_low"
+			elif level == 1:
+				mesh_name = "giant_mid"
 			# giant_b is a little shorter than giant_a, so stretch it to match.
 			if mesh_name == "giant_b":
 				sy *= 140.0 / 120.0
 			_batch(batches, mesh_name).add(Vector3(px - x0, h - 0.6, pz - z0), yaw, sw, sy, tint)
-			if level <= 1:
+			if level <= 0:
 				trunks.push_back(px - x0)
 				trunks.push_back(pz - z0)
 				trunks.push_back(5.8 * sw * 1.05)
@@ -325,12 +325,14 @@ static func _scatter_bushes(batches: Dictionary, x0: float, z0: float, size: flo
 			if px < x0 or px >= x0 + size or pz < z0 or pz >= z0 + size:
 				continue
 			var h := ForestTerrain.height(px, pz)
+			if ForestTerrain.in_lake(px, pz):
+				continue
 			var density := ForestTerrain.forest_density(px, pz, h)
 			# More bushes at the forest's edge and in glades than deep under the giants.
 			var chance := 0.16 + 0.34 * (1.0 - absf(density - 0.5) * 2.0)
 			if h > ForestTerrain.TREE_LINE_HIGH or chance <= ForestTerrain.rnd(i, j, 33):
 				continue
-			if ForestTerrain.slope(px, pz) > 0.32:
+			if ForestTerrain.slope(px, pz) > 0.24:
 				continue
 			var s := lerpf(0.8, 2.0, ForestTerrain.rnd(i, j, 34))
 			var shade := 0.8 + 0.4 * ForestTerrain.rnd(i, j, 35)
@@ -349,6 +351,8 @@ static func _scatter_ferns(batches: Dictionary, x0: float, z0: float, size: floa
 			var h := ForestTerrain.height(px, pz)
 			var density := ForestTerrain.forest_density(px, pz, h)
 			if h > ForestTerrain.TREE_LINE_HIGH or density * 0.8 + 0.05 <= ForestTerrain.rnd(i, j, 43):
+				continue
+			if ForestTerrain.slope(px, pz) > 0.24:
 				continue
 			var s := lerpf(0.7, 1.5, ForestTerrain.rnd(i, j, 44))
 			var shade := 0.8 + 0.4 * ForestTerrain.rnd(i, j, 45)
@@ -370,6 +374,8 @@ static func _scatter_grass(batches: Dictionary, x0: float, z0: float, size: floa
 			var chance := clampf(1.0 - density * 0.9, 0.08, 1.0)
 			if h > ForestTerrain.TREE_LINE_HIGH + 40.0 or chance <= ForestTerrain.rnd(i, j, 53):
 				continue
+			if ForestTerrain.slope(px, pz) > 0.16 or ForestTerrain.in_lake(px, pz):
+				continue
 			var s := lerpf(0.8, 1.5, ForestTerrain.rnd(i, j, 54))
 			var shade := 0.85 + 0.3 * ForestTerrain.rnd(i, j, 55)
 			_batch(batches, "grass").add(Vector3(px - x0, h - 0.03, pz - z0), ForestTerrain.rnd(i, j, 56) * TAU,
@@ -384,6 +390,8 @@ static func _scatter_rocks(batches: Dictionary, x0: float, z0: float, size: floa
 			if px < x0 or px >= x0 + size or pz < z0 or pz >= z0 + size:
 				continue
 			var h := ForestTerrain.height(px, pz)
+			if h < ForestTerrain.lake_level() + 0.2 and ForestTerrain.in_lake(px, pz):
+				continue
 			var chance := base_chance + 0.9 * ForestTerrain.slope(px, pz) + 0.3 * maxf(ForestTerrain.rock_noise(px, pz) - 0.62, 0.0)
 			if chance <= ForestTerrain.rnd(i, j, 63):
 				continue

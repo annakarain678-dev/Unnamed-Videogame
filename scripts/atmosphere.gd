@@ -27,6 +27,8 @@ var cycle := DayNightCycle.new()
 var normal_fog_density := 0.0012
 ## 0 = clear sky, 1 = overcast.
 var cloud_cover := 0.7
+## If set, water exists only where this returns true for (x, z).
+var water_area := Callable()
 
 const NORMAL_FOG_DENSITY := 0.0012
 const NORMAL_FOG_SKY_AFFECT := 0.3
@@ -155,6 +157,8 @@ func _process(delta: float) -> void:
 
 	var camera := get_viewport().get_camera_3d()
 	var depth := sea_level - camera.global_position.y if camera else 0.0
+	if camera and water_area.is_valid() and not water_area.call(camera.global_position.x, camera.global_position.z):
+		depth = -1.0
 	water_amount = _approach(water_amount, 1.0 if depth > 0.0 else 0.0, water_fade_speed, delta)
 
 	_apply(depth)
