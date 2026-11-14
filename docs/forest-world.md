@@ -17,4 +17,4 @@ To change the size or the rim, see the constants at the top of `scripts/forest/f
 
 ## Fayran stamina (tuned for the big world)
 
-Flapping now costs about a quarter as much (about 70 seconds of nonstop flapping), gliding refills faster, and the flight ceiling is much higher. Flying within about 20 feet (6 m) of the ground refills energy quickly even while flapping, so a Fayran can cross the whole map by skimming low. See the constants near the top of `scripts/form_body.gd`.
+Flapping now costs about a quarter as much (about 70 seconds of nonstop flapping), gliding refills faster, and the flight ceiling is much higher. Flying within about 30 feet (9 m) of gentle ground or of the lake's surface refills energy quickly even while flapping, so a Fayran can cross the whole map by skimming low. Steep ground (a cliff face) doesn't count. See the constants near the top of `scripts/form_body.gd`.

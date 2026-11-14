@@ -61,9 +61,12 @@ const FLAP_COST := 1.4
 ## Up in the thin air it doesn't.
 const GLIDE_RECOVERY := 4.0
 const THIN_AIR := 150.0
-## Flying within this height of the ground (about 20 feet) refills the energy fast, even while
-## flapping, so a Fayran can cross a huge distance by staying low.
-const GROUND_EFFECT_HEIGHT := 6.1
+## Flying within this height (about 30 feet) of gentle ground, or of the water's surface, refills the
+## energy fast, even while flapping, so a Fayran can cross a huge distance by staying low. Steep
+## ground (a cliff face) doesn't count, so you can't climb a cliff by hugging it.
+const GROUND_EFFECT_HEIGHT := 9.1
+## How level the ground must be (the up part of its surface direction; 0.8 is about a 37 degree slope).
+const GROUND_EFFECT_FLATNESS := 0.8
 const GROUND_EFFECT_RECOVERY := 30.0
 ## Kash: how fast the head can swing round (radians per second). Sets how tight a U-turn is.
 const SERPENT_TURN_RATE := 3.5
@@ -460,6 +463,23 @@ func _steer(wanted: Vector3, delta: float) -> Vector3:
 
 
 ## How high the feet are above the ground below (a large number if there's no ground near).
+## How far above gentle ground or the water's surface this body is (INF if neither is close below).
+## Steep ground, like a cliff face, is ignored.
+func _ground_effect_distance() -> float:
+	var best := INF
+	var water := _water_level()
+	if water > -50000.0 and global_position.y >= water:
+		best = global_position.y - water
+	var ray := PhysicsRayQueryParameters3D.create(
+		global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * (GROUND_EFFECT_HEIGHT + 1.0))
+	ray.collision_mask = Layers.WORLD | Layers.THIN
+	ray.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit and (hit["normal"] as Vector3).y >= GROUND_EFFECT_FLATNESS:
+		best = minf(best, global_position.y - (hit["position"] as Vector3).y)
+	return best
+
+
 func _height_above_ground(search := 3.0) -> float:
 	if is_on_floor():
 		return 0.0
@@ -560,7 +580,7 @@ func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
 	_flight_speed += -look.y * FLIGHT_GRAVITY * delta
 	var drag := FLIGHT_DRAG * (0.35 if dive else 1.0) * (4.0 if throttle < -0.1 else 1.0)
 	_flight_speed -= drag * _flight_speed * _flight_speed * delta
-	var low := _height_above_ground(GROUND_EFFECT_HEIGHT + 1.0) < GROUND_EFFECT_HEIGHT
+	var low := _ground_effect_distance() < GROUND_EFFECT_HEIGHT
 	if is_flapping:
 		_flight_speed += FLIGHT_THRUST * (1.5 if is_dashing else 1.0) * delta
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)

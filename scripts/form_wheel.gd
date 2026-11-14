@@ -2,7 +2,8 @@ class_name FormWheel
 extends CanvasLayer
 ## The wheel of forms. A mostly see-through ring with one simple symbol for each species. A highlight
 ## travels clockwise or counter-clockwise around it (it is not a free mouse):
-##   - move the mouse right / left, or scroll, or press D / A (or E / Q, or the arrow keys) to turn it
+##   - move the mouse round in a circle (clockwise or counter-clockwise), or scroll, or press D / A
+##     (or E / Q, or the arrow keys) to turn it
 ##   - Left Mouse (or Enter) picks the highlighted form
 ##   - Right Mouse or Esc closes the wheel without choosing
 
@@ -20,9 +21,13 @@ const ICONS := {
 	"Sen-Kash": "res://assets/symbols/sen_kash.png",
 	"Qoi-Kash": "res://assets/symbols/qoi_kash.png",
 }
-## How far the mouse must travel to move the highlight one place. While you travel, an arrow grows
-## toward the place it is about to jump to.
-const MOUSE_STEP := 170.0
+## How far round a circle the mouse must go (in radians) to move the highlight one place. While you
+## travel, an arrow grows toward the place it is about to jump to.
+const ANGLE_STEP := 0.85
+## The mouse is tracked as a point that stays within this many pixels of its start, and circling
+## only counts while it is further out than the dead zone.
+const CURSOR_MAX := 140.0
+const DEAD_ZONE := 28.0
 ## After each jump the wheel rests for this long, ignoring the mouse, so it can't race round.
 const PAUSE := 0.4
 
@@ -30,7 +35,8 @@ var is_open := false
 
 var _index := 0
 var _angle := 0.0  # Where the highlight is drawn now (radians, 0 = top, clockwise).
-var _mouse_travel := 0.0
+var _mouse_travel := 0.0  # Radians travelled round the circle; clockwise is positive.
+var _cursor := Vector2.ZERO
 var _pause := 0.0
 var _textures := {}
 var _glyph: Texture2D
@@ -54,6 +60,7 @@ func open() -> void:
 	is_open = true
 	visible = true
 	_mouse_travel = 0.0
+	_cursor = Vector2.ZERO
 	_pause = 0.0
 	_angle = _slot_angle(_index)
 
@@ -69,7 +76,8 @@ func _process(delta: float) -> void:
 		return
 	_pause = maxf(0.0, _pause - delta)
 	# If you stop moving the mouse, the arrow slowly fades back.
-	_mouse_travel = move_toward(_mouse_travel, 0.0, 90.0 * delta)
+	_mouse_travel = move_toward(_mouse_travel, 0.0, 1.0 * delta)
+	_cursor = _cursor.move_toward(Vector2.ZERO, 70.0 * delta)
 	# Glide the highlight round the short way.
 	var goal := _slot_angle(_index)
 	_angle += wrapf(goal - _angle, -PI, PI) * (1.0 - exp(-14.0 * delta))
@@ -82,10 +90,13 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if event is InputEventMouseMotion:
 		if _pause <= 0.0:
-			_mouse_travel += (event as InputEventMouseMotion).relative.x
-			if absf(_mouse_travel) >= MOUSE_STEP:
+			# Follow the mouse as a point; going round the circle adds up as an angle.
+			var before := _cursor
+			_cursor = (_cursor + (event as InputEventMouseMotion).relative).limit_length(CURSOR_MAX)
+			if before.length() > DEAD_ZONE and _cursor.length() > DEAD_ZONE:
+				_mouse_travel += wrapf(_cursor.angle() - before.angle(), -PI, PI)
+			if absf(_mouse_travel) >= ANGLE_STEP:
 				_step(1 if _mouse_travel > 0.0 else -1)
-				_mouse_travel = 0.0
 	elif event.is_action_pressed("shine"):
 		_choose()  # Left Mouse (the shine control), or F.
 	elif event.is_action_pressed("move_right"):
@@ -116,6 +127,7 @@ func _step(direction: int) -> void:
 	_index = posmod(_index + direction, SPECIES.size())
 	_pause = PAUSE
 	_mouse_travel = 0.0
+	_cursor = Vector2.ZERO
 
 
 func _choose() -> void:
@@ -134,7 +146,7 @@ func _draw_wheel() -> void:
 	var center := size * 0.5
 	var radius := minf(size.x, size.y) * 0.27
 	var cream := Color(1.0, 0.95, 0.82)
-	var gold := Color(1.0, 0.80, 0.38)
+	var gold := Color(0.55, 0.82, 1.0)
 
 	# A very faint disc and rings: mostly see-through.
 	_canvas.draw_circle(center, radius * 1.32, Color(0.04, 0.06, 0.10, 0.22))
@@ -148,7 +160,7 @@ func _draw_wheel() -> void:
 	_canvas.draw_arc(center, radius * 1.0, arc_center - 0.5, arc_center + 0.5, 28, Color(gold, 0.55), 3.0, true)
 
 	# The arrow: as the mouse travels, it grows from the highlight toward the next place.
-	var pull := clampf(_mouse_travel / MOUSE_STEP, -1.0, 1.0)
+	var pull := clampf(_mouse_travel / ANGLE_STEP, -1.0, 1.0)
 	if absf(pull) > 0.05 and _pause <= 0.0:
 		var span := TAU / SPECIES.size() * absf(pull)
 		var from_angle := arc_center + (0.0 if pull > 0.0 else -span)
@@ -181,7 +193,7 @@ func _draw_wheel() -> void:
 	var name_size := font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26)
 	_canvas.draw_string(font, center + Vector2(-name_size.x * 0.5, radius * 1.55), name_text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(cream, 0.92))
-	var hint := "Mouse or A / D  ·  turn        Left Click  ·  choose        Right Click  ·  close"
+	var hint := "Circle the mouse or A / D  ·  turn        Left Click  ·  choose        Right Click  ·  close"
 	var hint_size := font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
 	_canvas.draw_string(font, center + Vector2(-hint_size.x * 0.5, radius * 1.55 + 28.0), hint,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(cream, 0.6))
