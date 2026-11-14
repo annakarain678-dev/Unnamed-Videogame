@@ -1,5 +1,7 @@
 # Pivot: open world, a stilled kingdom, no time loop
 
+> **Update:** the stilled-kingdom cause and the stone statues are replaced. See [character-and-conflict.md](character-and-conflict.md), which wins wherever it differs from this note.
+
 This note **replaces** the time loop and the chapter structure in the older notes. The species skills, the wisp, the darklings and the spirit view all stay. Nothing here is built yet.
 
 ## 1. The new shape
