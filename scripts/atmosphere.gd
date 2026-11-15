@@ -54,6 +54,10 @@ const SPIRIT_GRADE_DARK := Color(0.02, 0.03, 0.10)
 const SPIRIT_GRADE_LIGHT := Color(0.80, 0.88, 1.0)
 
 # --- Underwater look ---
+const CAVE_AMBIENT := Color(0.58, 0.60, 0.64)
+const CAVE_FOG := Color(0.03, 0.035, 0.045)
+const CAVE_FOG_DENSITY := 0.005
+
 const WATER_COLOR := Color(0.06, 0.30, 0.40)
 const SHALLOW_WATER_DENSITY := 0.04
 const DEEP_WATER_DENSITY := 0.09
@@ -82,6 +86,9 @@ void fragment() {
 var spirit_amount := 1.0
 ## 0 = above water, 1 = fully underwater.
 var water_amount := 0.0
+## 0 = outdoors, 1 = deep underground: no sun, moon or sky light, a dim even glow, dark fog.
+## (Set by whoever builds a world that has caves.)
+var cave_amount := 0.0
 
 var _spirit_goal := 1.0
 var _heart_amount := 0.0
@@ -225,6 +232,19 @@ func _apply(depth := 0.0) -> void:
 		_graded_amount = wash
 		_grade.set_color(0, Color.BLACK.lerp(SPIRIT_GRADE_DARK, wash))
 		_grade.set_color(1, Color.WHITE.lerp(SPIRIT_GRADE_LIGHT, wash))
+
+	# Underground: no outside light at all.
+	var c := cave_amount
+	if c > 0.001:
+		_sun.light_energy *= 1.0 - c
+		_moon.light_energy *= 1.0 - c
+		_spirit_light.light_energy *= 1.0 - 0.85 * c
+		environment.ambient_light_sky_contribution *= 1.0 - c
+		environment.ambient_light_color = SPIRIT_AMBIENT.lerp(CAVE_AMBIENT, c)
+		environment.fog_light_color = environment.fog_light_color.lerp(CAVE_FOG, c * (1.0 - w))
+		environment.fog_density = lerpf(environment.fog_density, CAVE_FOG_DENSITY, c * (1.0 - w))
+	else:
+		environment.ambient_light_color = SPIRIT_AMBIENT
 
 	RenderingServer.global_shader_parameter_set("spirit_view", s)
 

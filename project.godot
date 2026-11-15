@@ -6,7 +6,7 @@ config_version=5
 
 config/name="Lenhavu"
 config/description="A wisp, a world of four species, and the darkness that threatens it."
-run/main_scene="res://scenes/forest.tscn"
+run/main_scene="res://scenes/region.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]

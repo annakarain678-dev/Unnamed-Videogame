@@ -87,6 +87,9 @@ decides what counts as a lie.
 
 ## 3. Placing it on the map
 
+(Updated in [region-greybox.md](region-greybox.md): the flowers are on a flat-topped mesa beside the road fork,
+the lake is 24 m deep with a drowned tunnel that comes up in the village, and the basin is about 2.9 km across.)
+
 Distances are from the starting town. They keep the sketch's arrangement (town in the middle, darklings
 up and left, bandits right, ruins left, village below with the lake between).
 

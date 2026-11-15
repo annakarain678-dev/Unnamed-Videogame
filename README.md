@@ -24,7 +24,14 @@ Or just double-click the **Lenhavu** launcher on the Desktop.
 | Mouse | Look | Look |
 | Esc | Pause menu (Resume, Journal, Options, Save, Quit) | |
 
-## The giant forest (the scene that opens now)
+## The first region, grey-box (the scene that opens now)
+
+`scenes/region.tscn`: a mostly round basin about 2.9 km across with every place of the first chapter marked
+(boxes and name tags), roads, a deep lake, a flower mesa, and walk-in caves (no loading). Same controls as the
+forest. See [docs/region-greybox.md](docs/region-greybox.md). The terrain takes about 10 s to build in the
+background (the area around you first). To go back to the forest, set `scenes/forest.tscn` as the main scene.
+
+## The giant forest
 
 You start as the wisp, in daylight, in a clearing at the edge of a redwood-sized forest. The basin is about
 4 to 5 km across, ringed by an uneven wall of cliffs and mountains. It has only land, trees, bushes, ferns,

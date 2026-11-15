@@ -57,9 +57,8 @@ func _apply_setup(options: Dictionary) -> void:
 			arm.spring_length = float(options["zoom"])
 
 	if options.has("day"):
-		var forest := scene as ForestWorld
-		if forest:
-			forest.set_day_preview(true)
+		if scene.has_method("set_day_preview"):
+			scene.call("set_day_preview", true)
 
 	if options.has("hour"):
 		var atmosphere := scene.find_child("Atmosphere", true, false) as Atmosphere
