@@ -9,46 +9,46 @@ extends RefCounted
 
 const SEED := 4242
 const BASE := 50.0
-const RIM_RADIUS := 1450.0
-const RIM_WANDER := 110.0
+const RIM_RADIUS := 1000.0
+const RIM_WANDER := 80.0
 const RIM_WIDTH := 240.0
 const RIM_HEIGHT := 190.0
 ## Terrain is built out to about this far from the center.
-const EDGE := 1830.0
+const EDGE := 1360.0
 
 # --- Where things are (x, z) -----------------------------------------------------
 const TOWN := Vector2(0.0, 0.0)
 ## A flat-topped mesa with flowers on top: you have to fly up to get them.
-const MESA := Vector2(120.0, -520.0)
+const MESA := Vector2(85.0, -365.0)
 const MESA_TOP := 55.0
 const MESA_BASE := 85.0
 const MESA_HEIGHT := 75.0
-const FORK := Vector2(190.0, -650.0)
-const DARKLING := Vector2(-330.0, -1000.0)
-const BANDIT := Vector2(950.0, -100.0)
-const RUINS := Vector2(-800.0, 400.0)
+const FORK := Vector2(130.0, -455.0)
+const DARKLING := Vector2(-230.0, -700.0)
+const BANDIT := Vector2(620.0, 40.0)
+const RUINS := Vector2(-480.0, 330.0)
 const RUINS_RADIUS := 150.0
 const RUINS_HEIGHT := 45.0
 ## x, z, radius. A deep lake.
-const LAKE := Vector3(-100.0, 850.0, 62.0)
+const LAKE := Vector3(-150.0, 560.0, 62.0)
 const LAKE_DEPTH := 24.0
-const VILLAGE := Vector2(270.0, 1105.0)
-const VILLAGE_RADIUS := 190.0
-const VILLAGE_HEIGHT := 70.0
+const VILLAGE := Vector2(200.0, 660.0)
+const VILLAGE_RADIUS := 150.0
+const VILLAGE_HEIGHT := 60.0
 const QUARRY_FLOOR := 8.0
 
 ## The roads and trails, as lists of points (x, z).
 const ROAD_NORTH: Array[Vector2] = [
-	Vector2(0.0, -110.0), Vector2(-15.0, -300.0), Vector2(-10.0, -470.0), Vector2(40.0, -600.0), Vector2(190.0, -650.0),
+	Vector2(0.0, -110.0), Vector2(-10.0, -210.0), Vector2(-7.0, -330.0), Vector2(28.0, -420.0), Vector2(130.0, -455.0),
 ]
 const ROAD_DARKLING: Array[Vector2] = [
-	Vector2(190.0, -650.0), Vector2(-60.0, -800.0), Vector2(-330.0, -1000.0),
+	Vector2(130.0, -455.0), Vector2(-40.0, -560.0), Vector2(-230.0, -700.0),
 ]
 const ROAD_BANDIT: Array[Vector2] = [
-	Vector2(190.0, -650.0), Vector2(500.0, -480.0), Vector2(800.0, -250.0), Vector2(950.0, -100.0),
+	Vector2(130.0, -455.0), Vector2(350.0, -336.0), Vector2(560.0, -175.0), Vector2(620.0, 40.0),
 ]
 const ROAD_RUINS: Array[Vector2] = [
-	Vector2(-740.0, 450.0), Vector2(-600.0, 560.0), Vector2(-430.0, 700.0), Vector2(-250.0, 790.0), Vector2(-165.0, 830.0),
+	Vector2(-420.0, 300.0), Vector2(-330.0, 390.0), Vector2(-240.0, 480.0), Vector2(-190.0, 530.0),
 ]
 
 static var _ready_flag := false
@@ -57,7 +57,7 @@ static var _hills: FastNoiseLite
 static var _detail: FastNoiseLite
 static var _rim_warp: FastNoiseLite
 static var _crag: FastNoiseLite
-static var _holes: Array = []  # [Vector2 a, Vector2 b, float radius]
+static var _holes: Array = []
 static var _paths: Array = []
 
 
@@ -84,22 +84,16 @@ static func _make(frequency: float, octaves: int, seed_offset: int) -> FastNoise
 	return noise
 
 
-## Called by RegionCaves: a hole in the ground where a cave opens to the sky. It is a slot from a to b
-## (both are (x, z); give the same point twice for a round hole), with this half-width.
-static func add_hole(a: Vector2, b: Vector2, radius: float) -> void:
-	_holes.append([a, b, radius])
+## Called by RegionCaves: a rectangle of ground (grid-aligned) that is built by the cave mesh instead, so
+## a cave can open to the sky with no seam, lid or hole.
+static func add_hole(rect: Rect2) -> void:
+	_holes.append(rect)
 
 
 static func is_hole(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
 	for hole in _holes:
-		var a: Vector2 = hole[0]
-		var b: Vector2 = hole[1]
-		var ab := b - a
-		var t := 0.0
-		if ab.length_squared() > 0.001:
-			t = clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
-		if p.distance_to(a + ab * t) < float(hole[2]):
+		if (hole as Rect2).has_point(p):
 			return true
 	return false
 

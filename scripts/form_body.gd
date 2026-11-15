@@ -88,6 +88,10 @@ const FLIGHT_GRAVITY := 9.0
 ## Air resistance: sets cruising speed with W (~17 m/s level) and how fast a dive can get.
 const FLIGHT_DRAG := 0.02
 const FLIGHT_THRUST := 6.0
+## Flapping on for a long time pushes harder (up to this much more), building over CRUISE_BUILD seconds.
+const CRUISE_BONUS := 0.8
+const CRUISE_BUILD := 10.0
+const CRUISE_FADE := 4.0
 ## In flight, Space only gives lift this close to the ground (meters): for short hops, not flying.
 const SPACE_LIFT_HEIGHT := 1.0
 const FLIGHT_TOP_SPEED := 40.0
@@ -191,6 +195,7 @@ var serpent := false
 var _tail_carried := false
 ## Fayran: current flying speed along the way you're heading.
 var _flight_speed := 0.0
+var _cruise := 0.0
 var _bank: Node3D
 var _turn_rate := 0.0
 ## 0 on the ground, 1 in flight: in flight the body turns and tips around the chest (where the
@@ -581,12 +586,16 @@ func _fly(delta: float, _direction: Vector3, rise: bool, dive: bool) -> void:
 	var drag := FLIGHT_DRAG * (0.35 if dive else 1.0) * (4.0 if throttle < -0.1 else 1.0)
 	_flight_speed -= drag * _flight_speed * _flight_speed * delta
 	var low := _ground_effect_distance() < GROUND_EFFECT_HEIGHT
+	# Flying on for a while builds up cruising speed; it fades if you stop beating your wings.
+	_cruise = move_toward(_cruise, 1.0 if is_flapping else 0.0, delta / (CRUISE_BUILD if is_flapping else CRUISE_FADE))
 	if is_flapping:
-		_flight_speed += FLIGHT_THRUST * (1.5 if is_dashing else 1.0) * delta
+		_flight_speed += FLIGHT_THRUST * (1.0 + CRUISE_BONUS * _cruise) * (1.5 if is_dashing else 1.0) * delta
 		flight_energy = maxf(0.0, flight_energy - FLAP_COST * delta)
 	elif global_position.y < sea_level + THIN_AIR:
 		# Gliding low, energy slowly comes back (but never fully while airborne).
-		flight_energy = minf(80.0, flight_energy + GLIDE_RECOVERY * delta)
+		# (Only if it is below that: letting go of W must never drop a full bar.)
+		if flight_energy < 80.0:
+			flight_energy = minf(80.0, flight_energy + GLIDE_RECOVERY * delta)
 	if low:
 		# Skimming the ground: energy refills quickly, whether flapping or gliding.
 		flight_energy = minf(100.0, flight_energy + GROUND_EFFECT_RECOVERY * delta)

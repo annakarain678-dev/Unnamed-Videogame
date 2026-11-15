@@ -167,6 +167,12 @@ func update(delta: float, speed: float, ground_y: float, on_ground: bool, in_wat
 			var speed_down := 30.0 if _points[i].y > rest else 14.0
 			point.y = lerpf(_points[i].y, rest, 1.0 - exp(-speed_down * delta))
 			point.y = maxf(point.y, rest - 0.05)
+		# The pieces are linked: they can't be pulled apart or squashed together. When the hips
+		# jump, the nearest part of the tail is lifted with them instead of being left behind.
+		var leader_at := hips if i == 0 else _points[i - 1]
+		var gap := point - leader_at
+		if gap.length() > 0.001:
+			point = leader_at + gap.normalized() * clampf(gap.length(), spacing * 0.9, spacing * 1.06)
 		_points[i] = point
 	_place_segments()
 

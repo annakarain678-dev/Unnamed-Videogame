@@ -4,38 +4,50 @@
 changes below. North is -Z. Metres from the town unless noted. All grey on purpose: contour lines every 10 m
 (heavier every 50 m), a faint 100 m grid, pale roads, name tags on everything.
 
-## Layout
+## Layout (tightened by about 30% after the first play-test)
 | Place | Position | Notes |
 |---|---|---|
-| Starting Town | (0, 0) | level clearing; pillar, tavern, scholar, market stalls, duel ground, crier |
-| Flower mesa | (120, -520) | 75 m sheer-sided mesa, flat top: fly up for the flowers |
-| Road fork, footprints | (190, -650) | 150 m from the mesa; the north road passes the mesa's west foot |
-| Darkling area | (-330, -1000) | sunken clearing, ring of 12 stones, Lucifer marker, dragon-egg mural |
-| Bandit camp | (950, -100) | quarry sunk 8 m, walled on the east; pillar; loot; captives |
-| Ancient ruins | (-800, 400) | 45 m hill with a flat top; dragon egg; hatchery below |
-| Lake statues | (-100, 850) | 62 m radius, 24 m deep; four statue pillars and a form pillar |
-| Qoi-Kash village | (270, 1105) | a cavern under a 70 m hollow hill; pillar, houses, the pit, the king's mural |
+| Starting Town | (0, 0) | level clearing; pillar, tavern, library (across the street), market stalls, duel ground, crier near the pillar |
+| Flower mesa | (85, -365) | 75 m sheer-sided mesa, flat top: fly up for the flowers |
+| Road fork, footprints | (130, -455) | 100 m from the mesa; the north road hugs the mesa's west foot |
+| Darkling area | (-230, -700) | sunken clearing, 60 m ring of 14 stones, Lucifer marker, dragon-egg mural, a save pillar in the trees nearby |
+| Bandit camp | (620, 40) | quarry sunk 8 m, walled on the east; pillar; loot; captives |
+| Ancient ruins | (-480, 330) | 45 m hill with a flat top; dragon egg; hatchery below |
+| Lake | (-150, 560) | 62 m radius, 24 m deep; a ruined colonnade of statues on the north shore and a form pillar |
+| Qoi-Kash village | (200, 660) | a cavern under a 60 m hollow hill; pillar, houses; the Black is far below it |
 
 Roads: town to the fork (by the mesa), fork to the darkling area, fork to the bandit camp, ruins to the lake
-(the stone path). The rim is a wandering wall of cliffs, mean radius 1450 m (+/-110), about 190 m high.
+(the stone path). The rim is a wandering wall of cliffs, mean radius 1000 m (+/-80), about 190 m high.
+Town to every main place is 580 to 740 m.
 
 ## Caves (no loading)
 - The terrain is still a height-field. Caves are separate meshes under it (a signed-distance field turned
   into a mesh by surface nets, in 48 m cubes, on worker threads) in the same world, so you just walk in.
-- Where a cave meets the surface, the terrain has a hole: a round shaft in the lake floor, a slot (a mine ramp)
-  on the ruins hill, and a slot (a ramp) in the quarry floor.
+- **Cave mouths are carved, not cut.** Around each opening, the cave mesh builds the ground too (the terrain skips
+  those 48 m squares). The tunnel simply dips below the ground and the ground becomes its roof. (The first
+  version cut holes in the ground and left a closed, solid dome over each one: you could not get in.)
 - **The underwater way (the "U-bend"):** from the lake floor, down a shaft, 46 m below the surface, along a
-  drowned tunnel, and up through a pool into the village cavern. The pool is at the same level as the lake, and
-  the cavern floor rises out of it. Water exists wherever you are under the lake level inside the lake, the
-  tunnel's footprint and the pool.
-- **Hatchery arm:** ramp on the ruins hill, the hatchery chamber, then about 1.3 km of tunnel to the village.
-- **Smugglers' way:** from the village cavern, about 1.4 km, to a ramp in the bandit quarry.
+  300 m drowned tunnel, and up through a pool into the village cavern. The pool is at the same level as the
+  lake, and the cavern floor rises out of it. Water exists wherever you are under the lake level inside the
+  lake, the tunnel's footprint and the pool.
+- **Hatchery arm:** a ramp into the ruins hill, the hatchery chamber, then about 770 m of tunnel to the village.
+- **Smugglers' way:** from the village cavern, about 730 m, to a ramp in the bandit quarry floor.
+- **The Black:** a winding passage from the village cavern's east side, down about 60 m to a deep chamber with a
+  dark disc (the pit) and the king's mural.
 - Underground there is no sun, moon or sky light: a dim even glow and dark fog (`Atmosphere.cave_amount`).
   Real lighting (lamps, glow-moss) comes later.
-- Checked: a ball the size of a body can be swept along every tunnel segment without hitting anything.
+- Checked by script: a ball the size of a body can be swept along every tunnel segment, and walked in from the
+  open at all three surface mouths, without hitting anything; and 25,000 rays dropped over the whole region
+  found no hole in the ground.
+
+## On screen
+- Place names are flat screen text (`PlaceTags`), so fog and the wisp's colours never wash them out. Names for
+  things underground only show while you are underground.
+- The UI now scales with the window (base 1600 x 900, stretch mode `canvas_items`), so the menu, wheel and text
+  no longer jump in size when the window changes.
 
 ## Not done yet
-- The pit (the Black) is only a dark disc; the village is boxes; cave mouths are plain holes, not arches.
+- The pit (the Black) is only a dark disc; the village is boxes; cave mouths are natural but plain (no arches or timber).
 - The wheel still shows all five forms (Qoi-Kash should be locked until it is met). Drowning is real: only
   Qoi-Kash can take the drowned tunnel.
 - Only the town's own pillar and three more exist; no NPCs, quests or rumours yet.

@@ -11,7 +11,7 @@ extends Node3D
 const START_HOUR := 10.0
 const WISP_CEILING := 520.0
 const SPEEDS: Array[float] = [1.0, 3.0, 8.0, 20.0, 50.0]
-const MAP_RADIUS := 1850.0
+const MAP_RADIUS := 1400.0
 const MAP_SIZE := 512
 const FOG_DENSITY := 0.0004
 const FEET := 3.28084
@@ -32,7 +32,7 @@ var _day_preview := false
 var _timelapse := false
 
 var _ground_material: ShaderMaterial
-var _cave_material: ShaderMaterial
+var _tags: PlaceTags
 var _queue: Array = []
 var _results: Array = []
 var _mutex := Mutex.new()
@@ -77,6 +77,11 @@ func _ready() -> void:
 	_build_environment()
 	_make_materials()
 	_build_water()
+	var tag_layer := CanvasLayer.new()
+	tag_layer.layer = 1
+	add_child(tag_layer)
+	_tags = PlaceTags.new()
+	tag_layer.add_child(_tags)
 	_build_places()
 	_start_streaming()
 	_build_hud()
@@ -91,10 +96,6 @@ func _make_materials() -> void:
 	var shader := load("res://shaders/region_ground.gdshader") as Shader
 	_ground_material = ShaderMaterial.new()
 	_ground_material.shader = shader
-	_cave_material = ShaderMaterial.new()
-	_cave_material.shader = shader
-	_cave_material.set_shader_parameter("cave", 1.0)
-	_cave_material.set_shader_parameter("map_lines", 0.0)
 
 
 func _start_streaming() -> void:
@@ -163,15 +164,14 @@ func _instantiate(kind: String, data: Dictionary) -> void:
 	arrays[Mesh.ARRAY_NORMAL] = data["normals"]
 	arrays[Mesh.ARRAY_INDEX] = data["indices"]
 	var terrain := kind == "t"
-	if terrain:
-		arrays[Mesh.ARRAY_COLOR] = data["colors"]
+	arrays[Mesh.ARRAY_COLOR] = data["colors"]
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
-	node.material_override = _ground_material if terrain else _cave_material
+	node.material_override = _ground_material
 	node.position = data["origin"]
-	if not terrain:
+	if not terrain and not data["ground"]:
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var body := StaticBody3D.new()
 	body.collision_layer = Layers.WORLD
@@ -261,44 +261,49 @@ func _build_places() -> void:
 	_dark_material.roughness = 1.0
 	var level := RegionTerrain.lake_level()
 	var base := RegionTerrain.BASE
+	var village := RegionTerrain.VILLAGE
 	var village_floor := RegionCaves.village_floor
 
-	# --- The starting town: a pillar, the tavern, the scholar, the market, the crier. ---
+	# --- The starting town: a pillar, the tavern, the library, the market, the crier. ---
 	var town_pillar := _pillar(Vector2(-18.0, 52.0), base, Vector2(0.0, 0.0))
 	_player.set_save_point(town_pillar.respawn_position(), false)
 	_start_wisp(town_pillar)
 	_main("Starting Town", Vector2(0.0, 0.0), 0.0)
 	_building("Tavern\nKnight · Florist · Darkling Mayor", Vector2(-45.0, -35.0), Vector3(16.0, 7.0, 12.0))
-	_building("Scholar", Vector2(48.0, -48.0), Vector3(9.0, 6.0, 9.0))
-	_label("Market", Vector3(35.0, base + 11.0, 25.0), 350.0)
+	_building("Library\nScholar", Vector2(-45.0, -12.0), Vector3(12.0, 6.0, 9.0))
+	_tag("Market", Vector3(35.0, base + 11.0, 25.0), 300.0)
 	_building("Blacksmith (Human)", Vector2(22.0, 14.0), Vector3(5.0, 3.0, 4.0))
 	_building("Cartographer (Fayran)", Vector2(46.0, 12.0), Vector3(5.0, 3.0, 4.0))
 	_building("Visitor (Sen-Kash)", Vector2(50.0, 34.0), Vector3(5.0, 3.0, 4.0))
 	_building("Meat stand (Tar'ye)", Vector2(24.0, 38.0), Vector3(5.0, 3.0, 4.0))
 	_building("Duel ground (Tar'ye)", Vector2(75.0, 62.0), Vector3(14.0, 0.3, 14.0))
-	_building("Town Crier\n(lost child)", Vector2(0.0, -100.0), Vector3(3.0, 3.0, 3.0))
-	_small("Form pillar", Vector3(-18.0, base + 5.0, 52.0), 200.0)
+	_building("Town Crier\n(lost child)", Vector2(-6.0, 24.0), Vector3(3.0, 3.0, 3.0))
+	_small("Form pillar", Vector3(-18.0, base + 5.0, 52.0), 150.0)
 
 	# --- North: the forest, the flower mesa, the fork. ---
-	_label("Forest", Vector3(-20.0, base + 14.0, -330.0), 700.0)
-	var mesa_top := RegionTerrain.height(RegionTerrain.MESA.x, RegionTerrain.MESA.y)
-	_main("Flowers (fly up)", RegionTerrain.MESA, mesa_top + 6.0)
+	_tag("Forest", Vector3(-10.0, base + 14.0, -250.0), 600.0)
+	var mesa := RegionTerrain.MESA
+	var mesa_top := RegionTerrain.height(mesa.x, mesa.y)
+	_main("Flowers (fly up)", mesa, mesa_top + 6.0)
 	for i in 9:
 		var a := TAU * i / 9.0
-		var flower := _box(Vector3(RegionTerrain.MESA.x + cos(a) * 18.0, mesa_top + 0.6, RegionTerrain.MESA.y + sin(a) * 18.0), Vector3(1.2, 1.2, 1.2), false)
+		var flower := _box(Vector3(mesa.x + cos(a) * 18.0, mesa_top + 0.6, mesa.y + sin(a) * 18.0), Vector3(1.2, 1.2, 1.2), false)
 		flower.get_child(0).material_override = _marker_material
-	_box(Vector3(RegionTerrain.FORK.x, base + 1.6, RegionTerrain.FORK.y), Vector3(0.6, 3.2, 0.6), false)
-	_label("Road fork\nFootprints", Vector3(RegionTerrain.FORK.x, base + 7.0, RegionTerrain.FORK.y), 900.0)
+	var fork := RegionTerrain.FORK
+	_box(Vector3(fork.x, RegionTerrain.height(fork.x, fork.y) + 1.6, fork.y), Vector3(0.6, 3.2, 0.6), false)
+	_tag("Road fork\nFootprints", Vector3(fork.x, base + 7.0, fork.y), 700.0)
 
-	# --- The darklings' clearing: a ring of stones. ---
+	# --- The darklings' clearing: a wide ring of stones, and a save point in the trees nearby. ---
 	var darkling := RegionTerrain.DARKLING
 	var dark_ground := RegionTerrain.height(darkling.x, darkling.y)
 	_main("Darkling Corruption Area\nLucifer (B'nuo Puxarorna)", darkling, dark_ground)
-	for i in 12:
-		var a := TAU * i / 12.0
-		var stone := _box(Vector3(darkling.x + cos(a) * 18.0, dark_ground + 1.7, darkling.y + sin(a) * 18.0), Vector3(1.4, 3.4, 1.4), true)
+	for i in 14:
+		var a := TAU * i / 14.0
+		var stone := _box(Vector3(darkling.x + cos(a) * 30.0, dark_ground + 2.5, darkling.y + sin(a) * 30.0), Vector3(2.0, 5.0, 2.0), true)
 		stone.rotation.y = a
-	_building("Mural: dragon egg", Vector2(darkling.x + 32.0, darkling.y + 40.0), Vector3(9.0, 4.0, 1.0))
+	_building("Mural: dragon egg", Vector2(darkling.x + 48.0, darkling.y + 30.0), Vector3(9.0, 4.0, 1.0))
+	_pillar(Vector2(darkling.x - 8.0, darkling.y + 62.0), RegionTerrain.height(darkling.x - 8.0, darkling.y + 62.0), darkling)
+	_small("Form pillar (save point)", Vector3(darkling.x - 8.0, dark_ground + 5.0, darkling.y + 62.0), 150.0)
 
 	# --- The bandit camp, in its quarry. ---
 	var bandit := RegionTerrain.BANDIT
@@ -306,12 +311,13 @@ func _build_places() -> void:
 	_main("Bandit Camp", bandit, quarry)
 	for tent in [Vector2(-25.0, -20.0), Vector2(-10.0, 25.0), Vector2(-40.0, 5.0), Vector2(15.0, -15.0)]:
 		_box(Vector3(bandit.x + tent.x, quarry + 1.5, bandit.y + tent.y), Vector3(6.0, 3.0, 6.0), true)
-	_small("Gold & Loot (puzzle)", Vector3(bandit.x + 38.0, quarry + 4.0, bandit.y - 18.0), 500.0)
+	_small("Gold & Loot (puzzle)", Vector3(bandit.x + 38.0, quarry + 4.0, bandit.y - 18.0), 400.0)
 	_box(Vector3(bandit.x + 38.0, quarry + 1.0, bandit.y - 18.0), Vector3(3.0, 2.0, 3.0), true)
-	_small("Captives: Lost Child · Kidnapped Qoi-Kash", Vector3(bandit.x - 20.0, quarry + 6.0, bandit.y - 38.0), 500.0)
+	_small("Captives: Lost Child · Kidnapped Qoi-Kash", Vector3(bandit.x - 20.0, quarry + 6.0, bandit.y - 38.0), 400.0)
 	_box(Vector3(bandit.x - 20.0, quarry + 1.5, bandit.y - 38.0), Vector3(4.0, 3.0, 4.0), true)
 	_pillar(Vector2(bandit.x - 50.0, bandit.y), quarry, bandit)
-	_small("Smugglers' Way ↓ (to the village)", Vector3(RegionCaves.quarry_ramp.x, quarry + 5.0, RegionCaves.quarry_ramp.y), 500.0)
+	var ramp := RegionCaves.quarry_ramp
+	_small("Smugglers' Way ↓ (to the village)", Vector3(ramp.x, quarry + 7.0, ramp.y), 400.0)
 
 	# --- The ancient ruins on their hill, and the hatchery below. ---
 	var ruins := RegionTerrain.RUINS
@@ -322,34 +328,37 @@ func _build_places() -> void:
 		_box(Vector3(ruins.x + cos(a) * 22.0, ruins_top + 3.5, ruins.y + sin(a) * 22.0), Vector3(1.6, 7.0, 1.6), true)
 	var egg := _box(Vector3(ruins.x, ruins_top + 1.5, ruins.y), Vector3(2.6, 3.0, 2.6), true)
 	egg.get_child(0).material_override = _marker_material
-	_small("Dragon Egg", Vector3(ruins.x, ruins_top + 6.0, ruins.y + 3.0), 600.0)
-	_small("Hidden Hatchery (below)", Vector3(RegionCaves.hatchery.x, RegionCaves.hatchery.y + 8.0, RegionCaves.hatchery.z), 120.0)
+	_small("Dragon Egg", Vector3(ruins.x, ruins_top + 6.0, ruins.y + 3.0), 500.0)
+	_tag("Hidden Hatchery", RegionCaves.hatchery + Vector3(0.0, 8.0, 0.0), 150.0, true)
 	var mouth := RegionCaves.hatchery_mouth
-	_small("Hatchery slope ↓", Vector3(mouth.x, RegionTerrain.height(mouth.x, mouth.y) + 5.0, mouth.y), 500.0)
-	_small("Ruin stone path", Vector3(-430.0, RegionTerrain.height(-430.0, 700.0) + 5.0, 700.0), 600.0)
+	_small("Hatchery slope ↓", Vector3(mouth.x, RegionTerrain.height(mouth.x, mouth.y) + 8.0, mouth.y), 400.0)
+	var path_mid := Vector2(-330.0, 390.0)
+	_small("Ruin stone path", Vector3(path_mid.x, RegionTerrain.height(path_mid.x, path_mid.y) + 5.0, path_mid.y), 500.0)
 
-	# --- The lake statues, and the way down. ---
+	# --- The lake: a ruined colonnade on the north shore, and the way down. ---
 	var lake := RegionTerrain.LAKE
-	_main("Lake Statues\n(Qoi-Kash form)", Vector2(lake.x, lake.y), level + 6.0)
-	for i in 4:
-		var a := TAU * (i + 0.5) / 4.0
-		_box(Vector3(lake.x + cos(a) * (lake.z + 8.0), base + 2.0, lake.y + sin(a) * (lake.z + 8.0)), Vector3(1.2, 4.0, 1.2), true)
-	_pillar(Vector2(lake.x + 62.0, lake.y - 50.0), base, Vector2(lake.x, lake.y))
-	_label("Underwater cave ↓\n(drowned tunnel, 24 m down)", Vector3(RegionCaves.shaft.x, level + 5.0, RegionCaves.shaft.y), 700.0)
+	var shore_z := lake.y - (lake.z + 14.0)
+	_main("Lake Statues\n(Qoi-Kash form)", Vector2(lake.x, shore_z), base + 4.0)
+	for i in 5:
+		var column := _box(Vector3(lake.x - 16.0 + i * 8.0, base + 2.2, shore_z), Vector3(1.4, 4.4, 1.4), true)
+		column.rotation_degrees.z = [0.0, 6.0, -4.0, 0.0, 9.0][i]
+	_pillar(Vector2(lake.x + 42.0, shore_z + 6.0), base, Vector2(lake.x, lake.y))
+	_tag("Underwater cave ↓\n(drowned tunnel, 24 m down)", Vector3(RegionCaves.shaft.x, level + 5.0, RegionCaves.shaft.y), 500.0)
 
-	# --- The Qoi-Kash village, in the cavern under the hollow hill. ---
-	var village := RegionTerrain.VILLAGE
+	# --- The Qoi-Kash village, in the cavern under the hollow hill; the Black far below. ---
 	var hill_top := RegionTerrain.height(village.x, village.y)
-	_label("Qoi-Kash Village\n(in the cavern below)", Vector3(village.x, hill_top + 12.0, village.y), 0.0)
-	_pillar(Vector2(255.0, 1115.0), village_floor, Vector2(RegionCaves.pool.x, RegionCaves.pool.y))
-	for house in [Vector2(290.0, 1085.0), Vector2(315.0, 1110.0), Vector2(285.0, 1135.0), Vector2(335.0, 1085.0), Vector2(245.0, 1135.0)]:
-		_box(Vector3(house.x, village_floor + 2.5, house.y), Vector3(8.0, 5.0, 8.0), true)
-	_small("Qoi-Kash village", Vector3(300.0, village_floor + 14.0, 1108.0), 150.0)
-	var pit := _box(Vector3(320.0, village_floor + 0.1, 1122.0), Vector3(12.0, 0.2, 12.0), false)
-	pit.get_child(0).material_override = _dark_material
-	_small("The Black (pit)", Vector3(320.0, village_floor + 4.0, 1122.0), 150.0)
-	_small("Mural of the King", Vector3(336.0, village_floor + 6.0, 1112.0), 150.0)
-	_small("Pool (the drowned tunnel comes up here)", Vector3(RegionCaves.pool.x, level + 5.0, RegionCaves.pool.y), 150.0)
+	_tag("Qoi-Kash Village\n(in the cavern below)", Vector3(village.x, hill_top + 12.0, village.y), 0.0, false, true)
+	_pillar(village + Vector2(-15.0, 10.0), village_floor, RegionCaves.pool)
+	for house in [Vector2(20.0, -20.0), Vector2(45.0, 5.0), Vector2(15.0, 30.0), Vector2(50.0, -20.0), Vector2(-25.0, 30.0)]:
+		_box(Vector3(village.x + house.x, village_floor + 2.5, village.y + house.y), Vector3(8.0, 5.0, 8.0), true)
+	_tag("Qoi-Kash village", Vector3(village.x + 25.0, village_floor + 14.0, village.y), 200.0, true)
+	_tag("Pool (the drowned tunnel comes up here)", Vector3(RegionCaves.pool.x, level + 5.0, RegionCaves.pool.y), 200.0, true)
+	_tag("The Black ↓ (a long way down)", Vector3(village.x + 45.0, village_floor + 8.0, village.y + 20.0), 200.0, true)
+	var pit := RegionCaves.pit
+	var pit_disc := _box(Vector3(pit.x, pit.y + 0.1, pit.z), Vector3(14.0, 0.2, 14.0), false)
+	pit_disc.get_child(0).material_override = _dark_material
+	_tag("The Black (pit)", Vector3(pit.x, pit.y + 6.0, pit.z), 200.0, true)
+	_tag("Mural of the King", Vector3(pit.x + 20.0, pit.y + 6.0, pit.z), 200.0, true)
 
 
 func _pillar(at: Vector2, ground: float, facing: Vector2) -> FormPillar:
@@ -376,29 +385,31 @@ func _start_wisp(pillar: FormPillar) -> void:
 	_rig.snap_to_target()
 
 
-## A main place: a tall pale beacon with a name that shows from far away, through anything.
+## A main place: a tall pale beacon with a big name that shows from anywhere.
 func _main(place_name: String, at: Vector2, y: float) -> void:
 	var ground := RegionTerrain.height(at.x, at.y) if y == 0.0 else y
 	_box(Vector3(at.x, ground + 20.0, at.y), Vector3(1.6, 40.0, 1.6), false)
-	var tag := _label(place_name, Vector3(at.x, ground + 46.0, at.y), 0.0)
-	tag.no_depth_test = true
-	tag.pixel_size *= 1.4
+	_tags.add_tag(place_name, Vector3(at.x, ground + 46.0, at.y), 0.0, false, true)
 	_places.append([place_name.get_slice("\n", 0), Vector3(at.x, ground, at.y)])
 
 
+func _tag(text: String, at: Vector3, far: float, underground := false, big := false) -> void:
+	_tags.add_tag(text, at, far, underground, big)
+
+
 func _small(text: String, at: Vector3, far: float) -> void:
-	_label(text, at, far)
+	_tags.add_tag(text, at, far)
 	_places.append([text.get_slice("\n", 0), at])
 
 
 func _building(text: String, at: Vector2, size: Vector3) -> void:
 	var ground := RegionTerrain.height(at.x, at.y)
 	_box(Vector3(at.x, ground + size.y * 0.5, at.y), size, true)
-	_label(text, Vector3(at.x, ground + size.y + 3.0, at.y), 170.0)
+	_tags.add_tag(text, Vector3(at.x, ground + size.y + 3.0, at.y), 170.0)
 	_places.append([text.get_slice("\n", 0), Vector3(at.x, ground, at.y)])
 
 
-## A grey box, optionally solid.
+## A grey box, optionally solid. (The mesh is its first child.)
 func _box(center: Vector3, size: Vector3, solid: bool) -> Node3D:
 	var node: Node3D
 	var mesh := BoxMesh.new()
@@ -414,11 +425,9 @@ func _box(center: Vector3, size: Vector3, solid: bool) -> Node3D:
 		shape.size = size
 		var collision := CollisionShape3D.new()
 		collision.shape = shape
-		body.add_child(collision)
 		body.add_child(instance)
+		body.add_child(collision)
 		node = body
-		# Callers reach the mesh with get_child(0).
-		body.move_child(collision, 1)
 	else:
 		var holder := Node3D.new()
 		holder.add_child(instance)
@@ -426,24 +435,6 @@ func _box(center: Vector3, size: Vector3, solid: bool) -> Node3D:
 	node.position = center
 	add_child(node)
 	return node
-
-
-func _label(text: String, at: Vector3, far: float) -> Label3D:
-	var label := Label3D.new()
-	label.text = text
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.fixed_size = true
-	label.pixel_size = 0.0008
-	label.font_size = 40
-	label.outline_size = 12
-	label.modulate = Color(1.0, 1.0, 1.0)
-	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.85)
-	label.position = at
-	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	if far > 0.0:
-		label.visibility_range_end = far
-	add_child(label)
-	return label
 
 
 # --- Running ----------------------------------------------------------------------------------
@@ -480,6 +471,7 @@ func _update_cave_light(delta: float) -> void:
 	var under := p.y < RegionTerrain.height(p.x, p.z) - 1.5 and Vector2(p.x, p.z).length() < RegionTerrain.EDGE
 	_cave_amount = move_toward(_cave_amount, 1.0 if under else 0.0, delta * 3.0)
 	atmosphere.cave_amount = _cave_amount
+	_tags.underground_view = _cave_amount > 0.5
 
 
 func _unhandled_input(event: InputEvent) -> void:

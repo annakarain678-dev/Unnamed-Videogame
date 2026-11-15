@@ -74,11 +74,19 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 	var cell := RegionCaves.CELL
 	var origin := Vector3(cx, cy, cz) * RegionCaves.CHUNK
 	var prims := RegionCaves.prims_near(origin - Vector3.ONE * 3.0, origin + Vector3.ONE * (RegionCaves.CHUNK + 3.0))
-	if prims.is_empty():
+	var with_ground := RegionCaves.has_ground(cx, cz)
+	if prims.is_empty() and not with_ground:
 		return {}
 
-	# Samples at corners -1..n (index + 1).
+	# Samples at corners -1..n (index + 1). Where the cube builds the ground too, work out its height once
+	# for each column of samples.
 	var m := n + 2
+	var column_height := PackedFloat32Array()
+	if with_ground:
+		column_height.resize(m * m)
+		for k in m:
+			for i in m:
+				column_height[k * m + i] = RegionTerrain.height(origin.x + (i - 1) * cell, origin.z + (k - 1) * cell)
 	var field := PackedFloat32Array()
 	field.resize(m * m * m)
 	var any_air := false
@@ -86,7 +94,8 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 	for k in m:
 		for j in m:
 			for i in m:
-				var v := RegionCaves.sdf(origin + Vector3(i - 1, j - 1, k - 1) * cell, prims)
+				var ground := column_height[k * m + i] if with_ground else NAN
+				var v := RegionCaves.sdf(origin + Vector3(i - 1, j - 1, k - 1) * cell, prims, ground)
 				field[(k * m + j) * m + i] = v
 				if v < 0.0:
 					any_air = true
@@ -168,18 +177,42 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 
 	if indices.is_empty():
 		return {}
-	# Normals point into the open air: against the rock's gradient.
+	# Normals point into the open air: against the rock's gradient. Colors: how much each vertex is cave
+	# (rock walls) rather than ground (the green channel).
 	var normals := PackedVector3Array()
 	normals.resize(vertices.size())
+	var colors := PackedColorArray()
+	colors.resize(vertices.size())
 	var e := cell * 0.5
 	for v in vertices.size():
 		var p := origin + vertices[v]
+		var g_here := NAN
+		var g_x1 := NAN
+		var g_x0 := NAN
+		var g_z1 := NAN
+		var g_z0 := NAN
+		var cave_amount := 1.0
+		if with_ground:
+			g_here = RegionTerrain.height(p.x, p.z)
+			# Only vertices near the ground need the ground's shape in their gradient.
+			if absf(p.y - g_here) < 3.0:
+				g_x1 = RegionTerrain.height(p.x + e, p.z)
+				g_x0 = RegionTerrain.height(p.x - e, p.z)
+				g_z1 = RegionTerrain.height(p.x, p.z + e)
+				g_z0 = RegionTerrain.height(p.x, p.z - e)
+			else:
+				g_x1 = g_here
+				g_x0 = g_here
+				g_z1 = g_here
+				g_z0 = g_here
+			cave_amount = clampf((g_here - p.y - 0.8) / 1.2, 0.0, 1.0)
 		var gradient := Vector3(
-			RegionCaves.sdf(p + Vector3(e, 0, 0), prims) - RegionCaves.sdf(p - Vector3(e, 0, 0), prims),
-			RegionCaves.sdf(p + Vector3(0, e, 0), prims) - RegionCaves.sdf(p - Vector3(0, e, 0), prims),
-			RegionCaves.sdf(p + Vector3(0, 0, e), prims) - RegionCaves.sdf(p - Vector3(0, 0, e), prims))
+			RegionCaves.sdf(p + Vector3(e, 0, 0), prims, g_x1) - RegionCaves.sdf(p - Vector3(e, 0, 0), prims, g_x0),
+			RegionCaves.sdf(p + Vector3(0, e, 0), prims, g_here) - RegionCaves.sdf(p - Vector3(0, e, 0), prims, g_here),
+			RegionCaves.sdf(p + Vector3(0, 0, e), prims, g_z1) - RegionCaves.sdf(p - Vector3(0, 0, e), prims, g_z0))
 		normals[v] = -gradient.normalized()
+		colors[v] = Color(0.0, cave_amount, 0.0)
 	var faces := PackedVector3Array()
 	for index in indices:
 		faces.push_back(vertices[index])
-	return {"origin": origin, "vertices": vertices, "normals": normals, "indices": indices, "faces": faces}
+	return {"origin": origin, "vertices": vertices, "normals": normals, "colors": colors, "indices": indices, "faces": faces, "ground": with_ground}
