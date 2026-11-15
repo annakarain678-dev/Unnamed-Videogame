@@ -10,7 +10,7 @@ extends Node3D
 var species := "Human"
 var display_name := ""
 
-var _model: BodyModel
+var _model: Node3D
 
 
 func _ready() -> void:
@@ -31,13 +31,19 @@ func _ready() -> void:
 	body.add_child(shape)
 	add_child(body)
 
-	_model = BodyModel.new(species)
-	_model.set_owner_body(body)
-	add_child(_model)
-	_model.set_stone(false)
+	if npc_id == "crier":
+		_model = CrierModel.new()  # his own model, with his own idle and shouting animations
+		add_child(_model)
+	else:
+		var generic := BodyModel.new(species)
+		generic.set_owner_body(body)
+		add_child(generic)
+		generic.set_stone(false)
+		_model = generic
 
 
 func _process(delta: float) -> void:
-	if _model:
-		_model.animate(0.0, false, true, delta)
-		_model.update_serpent_tail(delta, 0.0, global_position.y, true, true)
+	var generic := _model as BodyModel
+	if generic:
+		generic.animate(0.0, false, true, delta)
+		generic.update_serpent_tail(delta, 0.0, global_position.y, true, true)

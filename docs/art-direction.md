@@ -18,3 +18,6 @@ Low-poly, hand-painted, **worn and cinematic**: simple and plain, never bright o
 - Tile painted textures into `region_ground.gdshader` (rock cliffs, roads) instead of flat noise colour.
 - Repaint the species models (Sen-Kash and Qoi-Kash especially) with spotted skin, clothing, hats and patches; keep the pill-person proportions readable.
 - Soften and warm the daylight, deepen the shadows, add lamps at night.
+
+## Town Crier (first custom character)
+`scripts/crier_model.gd` (`CrierModel`), built from the reference sheet: rust hood and tabard, slouch cap, rolled sleeves, scroll in the left hand, cuffed boots. Joint-hierarchy rig (`joints` dictionary: hips, spine, chest, neck, head, mouth, shoulder/elbow/wrist L and R, hip/knee/ankle L and R). Idle: breathing, weight shift, looking about. Shout: right hand cups the mouth, chest fills, head tips back, mouth opens in bursts, every 6 to 11 s or on `shout()`. Look at him alone with `scenes/crier_preview.tscn` (Space shouts, arrows turn him). Painted textures are not applied yet; colours are flat.
