@@ -81,7 +81,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		elif npc:
-			_notice("You are only a wisp. Take a form to speak to %s." % npc.display_name)
+			_notice("You need a body to talk to %s. Take a form." % npc.display_name)
 			return
 	# As the wisp, Right Mouse beside a form pillar opens its wheel of forms.
 	if event.is_action_pressed("draw") and not in_heart and not _wheel.is_open:
@@ -253,7 +253,7 @@ func _process(delta: float) -> void:
 		if _wheel.is_open:
 			_prompt.text = ""
 		elif statue == null and _nearest_npc() != null:
-			_prompt.text = "%s needs a body to talk  ·  Take a form" % _nearest_npc().display_name
+			_prompt.text = "You need a body to talk to %s  ·  Take a form" % _nearest_npc().display_name
 		elif statue == null and _nearest_pillar() != null:
 			_prompt.text = "Right Mouse  ·  Change form"
 		elif statue == null:
