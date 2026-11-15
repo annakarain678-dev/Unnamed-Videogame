@@ -26,6 +26,7 @@ var last_save_text := ""
 
 var _wheel: FormWheel
 var _wheel_pillar: FormPillar
+var _frozen_body: FormBody
 var _prompt: Label
 var _energy: ProgressBar
 var _breath: ProgressBar
@@ -67,7 +68,7 @@ func is_wheel_open() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# As the wisp, Right Mouse beside a form pillar opens its wheel of forms.
-	if event.is_action_pressed("draw") and current_body == null and not in_heart and not _wheel.is_open:
+	if event.is_action_pressed("draw") and not in_heart and not _wheel.is_open:
 		var pillar := _nearest_pillar()
 		if pillar:
 			_open_wheel(pillar)
@@ -121,9 +122,11 @@ func _lose_body(body: FormBody, what_happened: String, statue_note: String) -> v
 func _nearest_pillar() -> FormPillar:
 	var nearest: FormPillar = null
 	var nearest_distance := 4.5
+	# (As a body, it's the body that has to be beside the pillar.)
+	var here := current_body.global_position if current_body else _wisp.global_position
 	for node in get_tree().get_nodes_in_group("form_pillars"):
 		var pillar := node as FormPillar
-		var distance := _wisp.global_position.distance_to(pillar.global_position + Vector3.UP * 1.0)
+		var distance := here.distance_to(pillar.global_position + Vector3.UP * 1.0)
 		if distance < nearest_distance:
 			nearest = pillar
 			nearest_distance = distance
@@ -134,19 +137,31 @@ func _open_wheel(pillar: FormPillar) -> void:
 	_wheel_pillar = pillar
 	# Touching a pillar autosaves.
 	set_save_point(pillar.respawn_position())
-	# Hold the wisp still while the wheel is open.
+	# Hold the wisp (or the body you are in) still while the wheel is open.
 	_wisp.velocity = Vector3.ZERO
 	_wisp.set_physics_process(false)
+	_frozen_body = current_body
+	if _frozen_body:
+		_frozen_body.velocity = Vector3.ZERO
+		_frozen_body.set_physics_process(false)
 	_wheel.open()
 
 
 func _on_form_chosen(species: String) -> void:
 	if _wheel_pillar == null:
 		return
+	if current_body:
+		if current_body.species == species:
+			return  # Already in that form.
+		# Step out of the old form (a form made at a pillar just goes away) and into the new one.
+		_leave_body()
 	_enter_body(_wheel_pillar.spawn_form(species))
 
 
 func _on_wheel_closed() -> void:
+	if _frozen_body and is_instance_valid(_frozen_body):
+		_frozen_body.set_physics_process(true)
+	_frozen_body = null
 	# If no form was chosen, the wisp is free again. (Entering a body keeps it switched off.)
 	if current_body == null:
 		_wisp.set_physics_process(true)
@@ -175,6 +190,8 @@ func _process(delta: float) -> void:
 			_prompt.text = "Your wings are still drying"
 		elif current_body.can_fly and not current_body.is_flying and not current_body.is_on_floor():
 			_prompt.text = "Space  ·  Spread your wings and fly"
+		elif _nearest_pillar() != null:
+			_prompt.text = "Right Mouse  ·  Change form"
 		elif current_body.nearby_boulder() and not current_body.is_busy():
 			_prompt.text = "Right Mouse  ·  Push the boulder"
 		else:

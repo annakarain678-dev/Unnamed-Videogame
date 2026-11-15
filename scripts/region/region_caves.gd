@@ -71,7 +71,8 @@ static func setup() -> void:
 		_flood.append(Vector2(point.x, point.z))
 	_mouth(shaft)
 	# The pool inside the cavern, at lake level.
-	_capsule(Vector3(pool.x, level - 7.0, pool.y), Vector3(pool.x, level + 3.0, pool.y), 8.0, 8.0)
+	# (A round bowl, not a straight-sided well, so you can climb out of it up a gentle beach.)
+	_capsule(Vector3(pool.x, level + 10.0, pool.y), Vector3(pool.x, level + 10.1, pool.y), 17.0, 17.0)
 	# The village cavern: a wide room whose floor rises from the pool's edge.
 	_chamber(Vector3(village.x, level + 12.0, village.y), Vector3(70.0, 22.0, 45.0), level, pool)
 
@@ -227,7 +228,7 @@ static func prims_near(lo: Vector3, hi: Vector3) -> Array:
 ## Is this (x, z) over the drowned tunnel or its pool? (Water is there wherever you are below lake level.)
 static func in_flooded_zone(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
-	if p.distance_squared_to(pool) < 81.0:
+	if p.distance_squared_to(pool) < 225.0:
 		return true
 	for i in _flood.size() - 1:
 		var a := _flood[i]
@@ -245,9 +246,10 @@ static func _smin(a: float, b: float, k: float) -> float:
 	return minf(a, b) - h * h * k * 0.25
 
 
-## Negative inside the open air, positive in rock. `ground` is the height of the ground here, if this
-## is a cube that builds the ground too (then the sky above it counts as open air).
-static func sdf(p: Vector3, prims: Array, ground := NAN) -> float:
+## Negative inside the open air, positive in rock. `ground` is the height of the ground here, if known.
+## In a cube that builds the ground too (`open_sky`), the sky above the ground counts as open air; in
+## any other cube the cave is cut off just below the ground, so it can never poke up through it.
+static func sdf(p: Vector3, prims: Array, ground := NAN, open_sky := false) -> float:
 	var d := 1.0e9
 	for prim in prims:
 		var v: float
@@ -270,4 +272,6 @@ static func sdf(p: Vector3, prims: Array, ground := NAN) -> float:
 	d += _noise.get_noise_3dv(p) * ROUGHNESS
 	if is_nan(ground):
 		return d
-	return _smin(d, ground - p.y, 1.2)
+	if open_sky:
+		return _smin(d, ground - p.y, 1.2)
+	return maxf(d, p.y - (ground - 0.6))

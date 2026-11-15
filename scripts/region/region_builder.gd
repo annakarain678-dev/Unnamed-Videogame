@@ -6,6 +6,9 @@ extends RefCounted
 const TERRAIN_CELL := 6.0
 const TERRAIN_CELLS := 32
 const TERRAIN_CHUNK := TERRAIN_CELL * TERRAIN_CELLS   # 192 m
+const GIANT_CELL := 52.0
+const UNDER_CELL := 22.0
+const ROCK_CELL := 38.0
 
 
 ## Which terrain chunks (x, z index) are needed to cover the region.
@@ -44,7 +47,10 @@ static func terrain_chunk(ix: int, iz: int) -> Dictionary:
 			var dz := (heights[c - m] - heights[c + m]) / (2.0 * TERRAIN_CELL)
 			vertices.push_back(Vector3(i * TERRAIN_CELL, h, j * TERRAIN_CELL))
 			normals.push_back(Vector3(dx, 1.0, dz).normalized())
-			colors.push_back(Color(RegionTerrain.path_factor(x0 + i * TERRAIN_CELL, z0 + j * TERRAIN_CELL), 0.0, 0.0))
+			var wx := x0 + i * TERRAIN_CELL
+			var wz := z0 + j * TERRAIN_CELL
+			colors.push_back(Color(
+				RegionTerrain.path_factor(wx, wz), 0.0, RegionTerrain.forest_density(wx, wz, h), RegionTerrain.dead_amount(wx, wz)))
 
 	var indices := PackedInt32Array()
 	var faces := PackedVector3Array()
@@ -61,10 +67,112 @@ static func terrain_chunk(ix: int, iz: int) -> Dictionary:
 			var d := a + row
 			indices.append_array([a, b, c, a, c, d])
 			faces.append_array([vertices[a], vertices[b], vertices[c], vertices[a], vertices[c], vertices[d]])
+			# Next to a square the cave mesh builds, add an invisible wall down from the edge, so no crack
+			# between the two meshes can ever be fallen through.
+			if RegionTerrain.is_hole(cx + TERRAIN_CELL, cz):
+				_skirt(faces, vertices[b], vertices[c])
+			if RegionTerrain.is_hole(cx - TERRAIN_CELL, cz):
+				_skirt(faces, vertices[a], vertices[d])
+			if RegionTerrain.is_hole(cx, cz + TERRAIN_CELL):
+				_skirt(faces, vertices[d], vertices[c])
+			if RegionTerrain.is_hole(cx, cz - TERRAIN_CELL):
+				_skirt(faces, vertices[a], vertices[b])
+	var scatter := _scatter(x0, z0)
 	return {
 		"origin": Vector3(x0, 0.0, z0), "vertices": vertices, "normals": normals,
 		"colors": colors, "indices": indices, "faces": faces,
+		"batches": scatter["batches"], "trunks": scatter["trunks"],
+		"center": Vector3(x0 + TERRAIN_CHUNK * 0.5, 0.0, z0 + TERRAIN_CHUNK * 0.5),
 	}
+
+
+static func _skirt(faces: PackedVector3Array, a: Vector3, b: Vector3) -> void:
+	var down := Vector3(0.0, -4.0, 0.0)
+	faces.append_array([a, b, b + down, a, b + down, a + down])
+
+
+static func _batch(batches: Dictionary, mesh_name: String) -> ForestBuilder.Batch:
+	if not batches.has(mesh_name):
+		batches[mesh_name] = ForestBuilder.Batch.new()
+	return batches[mesh_name]
+
+
+## Trees, small conifers and rocks for one square of ground. Positions in the batches are relative to the
+## square's center; trunk positions are relative to its corner (for collision).
+static func _scatter(x0: float, z0: float) -> Dictionary:
+	var cx := x0 + TERRAIN_CHUNK * 0.5
+	var cz := z0 + TERRAIN_CHUNK * 0.5
+	var batches := {}
+	var trunks := PackedFloat32Array()
+	var x1 := x0 + TERRAIN_CHUNK
+	var z1 := z0 + TERRAIN_CHUNK
+
+	# Giants (about 60 to 120 m): three levels of detail, picked by distance (see RegionWorld).
+	for j in range(int(floor(z0 / GIANT_CELL)), int(floor(z1 / GIANT_CELL)) + 1):
+		for i in range(int(floor(x0 / GIANT_CELL)), int(floor(x1 / GIANT_CELL)) + 1):
+			var px := (i + 0.12 + 0.76 * ForestTerrain.rnd(i, j, 1)) * GIANT_CELL
+			var pz := (j + 0.12 + 0.76 * ForestTerrain.rnd(i, j, 2)) * GIANT_CELL
+			if px < x0 or px >= x1 or pz < z0 or pz >= z1:
+				continue
+			var h := RegionTerrain.height(px, pz)
+			if RegionTerrain.forest_density(px, pz, h) * 0.85 <= ForestTerrain.rnd(i, j, 3):
+				continue
+			if RegionTerrain.slope(px, pz) > 0.28:
+				continue
+			var tall := lerpf(62.0, 118.0, pow(ForestTerrain.rnd(i, j, 4), 1.3))
+			var sy := tall / 140.0
+			var sw := sy * (0.9 + 0.3 * ForestTerrain.rnd(i, j, 5))
+			var yaw := ForestTerrain.rnd(i, j, 6) * TAU
+			var shade := 0.88 + 0.24 * ForestTerrain.rnd(i, j, 7)
+			var tint := Color(shade, shade, shade, 1.0).lerp(Color(0.5, 0.46, 0.42, 1.0), RegionTerrain.dead_amount(px, pz))
+			var local := Vector3(px - cx, h - 0.6, pz - cz)
+			var full := "giant_a" if ForestTerrain.rnd(i, j, 8) < 0.5 else "giant_b"
+			_batch(batches, full).add(local, yaw, sw, sy * (140.0 / 120.0 if full == "giant_b" else 1.0), tint)
+			_batch(batches, "giant_mid").add(local, yaw, sw, sy, tint)
+			_batch(batches, "giant_low").add(local, yaw, sw, sy, tint)
+			trunks.append_array([px - x0, pz - z0, 5.8 * sw * 1.05, 140.0 * sy * 0.9, h])
+
+	# Smaller conifers in their shade.
+	for j in range(int(floor(z0 / UNDER_CELL)), int(floor(z1 / UNDER_CELL)) + 1):
+		for i in range(int(floor(x0 / UNDER_CELL)), int(floor(x1 / UNDER_CELL)) + 1):
+			var px := (i + 0.1 + 0.8 * ForestTerrain.rnd(i, j, 11)) * UNDER_CELL
+			var pz := (j + 0.1 + 0.8 * ForestTerrain.rnd(i, j, 12)) * UNDER_CELL
+			if px < x0 or px >= x1 or pz < z0 or pz >= z1:
+				continue
+			var h := RegionTerrain.height(px, pz)
+			if RegionTerrain.forest_density(px, pz, h) * 0.75 <= ForestTerrain.rnd(i, j, 13):
+				continue
+			if RegionTerrain.slope(px, pz) > 0.3:
+				continue
+			var s := 0.6 + 0.7 * ForestTerrain.rnd(i, j, 14)
+			var shade := 0.85 + 0.25 * ForestTerrain.rnd(i, j, 15)
+			_batch(batches, "under").add(Vector3(px - cx, h - 0.3, pz - cz), ForestTerrain.rnd(i, j, 16) * TAU, s, s, Color(shade, shade, shade, 1.0))
+
+	# Loose rocks, more on rough ground.
+	for j in range(int(floor(z0 / ROCK_CELL)), int(floor(z1 / ROCK_CELL)) + 1):
+		for i in range(int(floor(x0 / ROCK_CELL)), int(floor(x1 / ROCK_CELL)) + 1):
+			var px := (i + 0.1 + 0.8 * ForestTerrain.rnd(i, j, 21)) * ROCK_CELL
+			var pz := (j + 0.1 + 0.8 * ForestTerrain.rnd(i, j, 22)) * ROCK_CELL
+			if px < x0 or px >= x1 or pz < z0 or pz >= z1:
+				continue
+			if Vector2(px, pz).length() < 120.0 or RegionTerrain.is_hole(px, pz):
+				continue
+			var h := RegionTerrain.height(px, pz)
+			if RegionTerrain.path_factor(px, pz) > 0.2 or (h < RegionTerrain.lake_level() + 0.5 and RegionTerrain.in_water(px, pz)):
+				continue
+			var steep := RegionTerrain.slope(px, pz)
+			if ForestTerrain.rnd(i, j, 23) > 0.35 + steep * 2.0:
+				continue
+			var s := 0.7 + 2.4 * pow(ForestTerrain.rnd(i, j, 24), 2.0)
+			var shade := 0.8 + 0.3 * ForestTerrain.rnd(i, j, 25)
+			var rock := "rock_a" if ForestTerrain.rnd(i, j, 26) < 0.5 else "rock_b"
+			_batch(batches, rock).add(Vector3(px - cx, h - 0.2 * s, pz - cz), ForestTerrain.rnd(i, j, 27) * TAU, s * 1.3, s, Color(shade, shade, shade, 1.0))
+
+	var list: Array = []
+	for mesh_name in batches:
+		var b: ForestBuilder.Batch = batches[mesh_name]
+		list.append({"mesh": mesh_name, "count": b.count, "data": b.data})
+	return {"batches": list, "trunks": trunks}
 
 
 ## One 48 m cube of cave, as a smooth mesh (surface nets) with faces pointing into the open air.
@@ -82,7 +190,9 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 	# for each column of samples.
 	var m := n + 2
 	var column_height := PackedFloat32Array()
-	if with_ground:
+	# Cubes that reach the surface need the ground's height (to build it, or to stay below it).
+	var needs_heights := with_ground or (origin.y + RegionCaves.CHUNK > 18.0 and origin.y < 150.0)
+	if needs_heights:
 		column_height.resize(m * m)
 		for k in m:
 			for i in m:
@@ -94,8 +204,8 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 	for k in m:
 		for j in m:
 			for i in m:
-				var ground := column_height[k * m + i] if with_ground else NAN
-				var v := RegionCaves.sdf(origin + Vector3(i - 1, j - 1, k - 1) * cell, prims, ground)
+				var ground := column_height[k * m + i] if needs_heights else NAN
+				var v := RegionCaves.sdf(origin + Vector3(i - 1, j - 1, k - 1) * cell, prims, ground, with_ground)
 				field[(k * m + j) * m + i] = v
 				if v < 0.0:
 					any_air = true
@@ -192,10 +302,10 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 		var g_z1 := NAN
 		var g_z0 := NAN
 		var cave_amount := 1.0
-		if with_ground:
+		if needs_heights:
 			g_here = RegionTerrain.height(p.x, p.z)
 			# Only vertices near the ground need the ground's shape in their gradient.
-			if absf(p.y - g_here) < 3.0:
+			if absf(p.y - g_here) < 4.0:
 				g_x1 = RegionTerrain.height(p.x + e, p.z)
 				g_x0 = RegionTerrain.height(p.x - e, p.z)
 				g_z1 = RegionTerrain.height(p.x, p.z + e)
@@ -205,13 +315,14 @@ static func cave_chunk(cx: int, cy: int, cz: int) -> Dictionary:
 				g_x0 = g_here
 				g_z1 = g_here
 				g_z0 = g_here
-			cave_amount = clampf((g_here - p.y - 0.8) / 1.2, 0.0, 1.0)
+			if with_ground:
+				cave_amount = clampf((g_here - p.y - 0.8) / 1.2, 0.0, 1.0)
 		var gradient := Vector3(
-			RegionCaves.sdf(p + Vector3(e, 0, 0), prims, g_x1) - RegionCaves.sdf(p - Vector3(e, 0, 0), prims, g_x0),
-			RegionCaves.sdf(p + Vector3(0, e, 0), prims, g_here) - RegionCaves.sdf(p - Vector3(0, e, 0), prims, g_here),
-			RegionCaves.sdf(p + Vector3(0, 0, e), prims, g_z1) - RegionCaves.sdf(p - Vector3(0, 0, e), prims, g_z0))
+			RegionCaves.sdf(p + Vector3(e, 0, 0), prims, g_x1, with_ground) - RegionCaves.sdf(p - Vector3(e, 0, 0), prims, g_x0, with_ground),
+			RegionCaves.sdf(p + Vector3(0, e, 0), prims, g_here, with_ground) - RegionCaves.sdf(p - Vector3(0, e, 0), prims, g_here, with_ground),
+			RegionCaves.sdf(p + Vector3(0, 0, e), prims, g_z1, with_ground) - RegionCaves.sdf(p - Vector3(0, 0, e), prims, g_z0, with_ground))
 		normals[v] = -gradient.normalized()
-		colors[v] = Color(0.0, cave_amount, 0.0)
+		colors[v] = Color(0.0, cave_amount, 0.0, 0.0)
 	var faces := PackedVector3Array()
 	for index in indices:
 		faces.push_back(vertices[index])

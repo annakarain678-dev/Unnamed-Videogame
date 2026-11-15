@@ -57,6 +57,7 @@ static var _hills: FastNoiseLite
 static var _detail: FastNoiseLite
 static var _rim_warp: FastNoiseLite
 static var _crag: FastNoiseLite
+static var _patch: FastNoiseLite
 static var _holes: Array = []
 static var _paths: Array = []
 
@@ -70,6 +71,7 @@ static func setup() -> void:
 	_detail = _make(1.0 / 40.0, 2, 3)
 	_rim_warp = _make(0.01, 2, 4)
 	_crag = _make(1.0 / 55.0, 3, 5)
+	_patch = _make(1.0 / 170.0, 2, 6)
 	_paths = [ROAD_NORTH, ROAD_DARKLING, ROAD_BANDIT, ROAD_RUINS]
 	_ready_flag = true
 
@@ -151,7 +153,7 @@ static func height(x: float, z: float) -> float:
 	if ld < LAKE.z * 1.35:
 		var bowl: float
 		if ld < LAKE.z:
-			bowl = lake_level() - LAKE_DEPTH * (1.0 - pow(ld / LAKE.z, 3.0))
+			bowl = lake_level() - LAKE_DEPTH * (1.0 - pow(ld / LAKE.z, 2.0))
 		else:
 			bowl = lerpf(lake_level(), h, smoothstep(LAKE.z, LAKE.z * 1.35, ld))
 		h = minf(h, bowl)
@@ -187,3 +189,41 @@ static func path_factor(x: float, z: float) -> float:
 			var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
 			best = minf(best, p.distance_to(a + ab * t))
 	return 1.0 - smoothstep(2.0, 6.5, best)
+
+
+## Where the north forest belt is centred (between the town and the road fork).
+const FOREST_AT := Vector2(-10.0, -250.0)
+
+
+## How thickly trees grow here (0 = none, 1 = thick), before slope is considered.
+static func forest_density(x: float, z: float, h: float) -> float:
+	var r := sqrt(x * x + z * z)
+	var d := 0.28 + 0.4 * _patch.get_noise_2d(x, z)
+	d += 0.7 * (1.0 - smoothstep(90.0, 240.0, Vector2(x - FOREST_AT.x, z - FOREST_AT.y).length()))
+	d += 0.9 * smoothstep(rim_radius(x, z) - 320.0, rim_radius(x, z) - 40.0, r)
+	# Open ground for the places people go.
+	d *= smoothstep(190.0, 270.0, r)
+	d *= smoothstep(LAKE.z + 12.0, LAKE.z + 70.0, Vector2(x - LAKE.x, z - LAKE.y).length())
+	d *= smoothstep(120.0, 180.0, Vector2(x - BANDIT.x, z - BANDIT.y).length())
+	d *= smoothstep(RUINS_RADIUS * 0.5, RUINS_RADIUS * 0.95, Vector2(x - RUINS.x, z - RUINS.y).length())
+	d *= smoothstep(MESA_BASE + 5.0, MESA_BASE + 35.0, Vector2(x - MESA.x, z - MESA.y).length())
+	d *= smoothstep(30.0, 70.0, Vector2(x - FORK.x, z - FORK.y).length())
+	d *= 1.0 - path_factor(x, z)
+	d *= 1.0 - smoothstep(130.0, 175.0, h)
+	for hole in _holes:
+		if (hole as Rect2).grow(14.0).has_point(Vector2(x, z)):
+			return 0.0
+	return clampf(d, 0.0, 1.0)
+
+
+## 0..1: how dead the land is (round the darklings' ring).
+static func dead_amount(x: float, z: float) -> float:
+	return 1.0 - smoothstep(100.0, 190.0, Vector2(x - DARKLING.x, z - DARKLING.y).length())
+
+
+## How steep the ground is: 0 = flat, 1 = a vertical wall.
+static func slope(x: float, z: float) -> float:
+	var e := 3.0
+	var dx := (height(x + e, z) - height(x - e, z)) / (2.0 * e)
+	var dz := (height(x, z + e) - height(x, z - e)) / (2.0 * e)
+	return 1.0 - 1.0 / sqrt(1.0 + dx * dx + dz * dz)

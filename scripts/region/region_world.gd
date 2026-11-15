@@ -40,6 +40,7 @@ var _running := 0
 var _total := 0
 var _done := 0
 var _cave_amount := 0.0
+var _lines_on := false
 var _started_ms := 0
 var _reported := false
 
@@ -96,6 +97,11 @@ func _make_materials() -> void:
 	var shader := load("res://shaders/region_ground.gdshader") as Shader
 	_ground_material = ShaderMaterial.new()
 	_ground_material.shader = shader
+	_ground_material.set_shader_parameter("noise_tex", kit.noise_texture)
+	_ground_material.set_shader_parameter("lake_level", RegionTerrain.lake_level())
+	_ground_material.set_shader_parameter("lake_center", Vector2(RegionTerrain.LAKE.x, RegionTerrain.LAKE.y))
+	_ground_material.set_shader_parameter("lake_radius", RegionTerrain.LAKE.z)
+	_ground_material.set_shader_parameter("quarry_center", RegionTerrain.BANDIT)
 
 
 func _start_streaming() -> void:
@@ -184,6 +190,51 @@ func _instantiate(kind: String, data: Dictionary) -> void:
 	body.add_child(collision)
 	node.add_child(body)
 	add_child(node)
+	if terrain:
+		_add_trees(node, body, data)
+
+
+## Trees, small conifers and rocks for a square of ground, with a solid trunk for each giant. Each giant is
+## drawn three ways (full, middle, simple) and the distance picks which one shows.
+func _add_trees(node: Node3D, body: StaticBody3D, data: Dictionary) -> void:
+	var trunks: PackedFloat32Array = data["trunks"]
+	for t in trunks.size() / 5:
+		var cylinder := CylinderShape3D.new()
+		cylinder.radius = trunks[t * 5 + 2]
+		cylinder.height = trunks[t * 5 + 3]
+		var trunk := CollisionShape3D.new()
+		trunk.shape = cylinder
+		trunk.position = Vector3(trunks[t * 5], trunks[t * 5 + 4] + trunks[t * 5 + 3] * 0.5, trunks[t * 5 + 1])
+		body.add_child(trunk)
+	var center: Vector3 = data["center"]
+	for batch in data["batches"]:
+		var mesh_name: String = batch["mesh"]
+		var multimesh := MultiMesh.new()
+		multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		multimesh.use_colors = true
+		multimesh.mesh = kit.meshes[mesh_name]
+		multimesh.instance_count = batch["count"]
+		multimesh.buffer = batch["data"]
+		multimesh.custom_aabb = AABB(Vector3(-130.0, -80.0, -130.0), Vector3(260.0, 460.0, 260.0))
+		var instance := MultiMeshInstance3D.new()
+		instance.multimesh = multimesh
+		instance.position = center
+		instance.top_level = true
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		match mesh_name:
+			"giant_a", "giant_b":
+				instance.visibility_range_end = 450.0
+				instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			"giant_mid":
+				instance.visibility_range_begin = 400.0
+				instance.visibility_range_end = 1000.0
+			"giant_low":
+				instance.visibility_range_begin = 950.0
+			"under":
+				instance.visibility_range_end = 550.0
+			_:
+				instance.visibility_range_end = 700.0
+		add_child(instance)
 
 
 # --- Sky, water, atmosphere ------------------------------------------------------------
@@ -223,7 +274,7 @@ func _build_water() -> void:
 	var level := RegionTerrain.lake_level()
 	_water_plane("Lake", Vector3(RegionTerrain.LAKE.x, level, RegionTerrain.LAKE.y), RegionTerrain.LAKE.z * 2.7)
 	# The pool inside the village cavern, at the same level as the lake.
-	_water_plane("Pool", Vector3(RegionCaves.pool.x, level, RegionCaves.pool.y), 22.0)
+	_water_plane("Pool", Vector3(RegionCaves.pool.x, level, RegionCaves.pool.y), 34.0)
 
 
 func _water_plane(plane_name: String, at: Vector3, side: float) -> void:
@@ -496,6 +547,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key == KEY_T:
 		_timelapse = not _timelapse
 		atmosphere.cycle.day_length_minutes = 0.5 if _timelapse else 10.0
+	elif key == KEY_G:
+		_lines_on = not _lines_on
+		_ground_material.set_shader_parameter("map_lines", 1.0 if _lines_on else 0.0)
 	elif key == KEY_H:
 		_hud.visible = not _hud.visible
 		_help.visible = _hud.visible
@@ -520,7 +574,7 @@ func _build_hud() -> void:
 	layer.layer = 2
 	add_child(layer)
 	_help = _label2(layer, Vector2(16.0, 12.0))
-	_help.text = "1-5 speed   M map   V daylight preview   [ ] hour   T time-lapse   H hide"
+	_help.text = "1-5 speed   M map   V daylight preview   [ ] hour   T time-lapse   G grid lines   H hide"
 	_hud = _label2(layer, Vector2(16.0, 38.0))
 	_loading = _label2(layer, Vector2(16.0, 100.0))
 

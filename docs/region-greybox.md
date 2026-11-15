@@ -1,4 +1,4 @@
-# The first region, grey-box
+# The first region (grey-box layout, now coloured and planted)
 
 `scenes/region.tscn` (code in `scripts/region/`). Positions follow [chapter-one-map.md](chapter-one-map.md), with
 changes below. North is -Z. Metres from the town unless noted. All grey on purpose: contour lines every 10 m
@@ -39,6 +39,20 @@ Town to every main place is 580 to 740 m.
 - Checked by script: a ball the size of a body can be swept along every tunnel segment, and walked in from the
   open at all three surface mouths, without hitting anything; and 25,000 rays dropped over the whole region
   found no hole in the ground.
+
+## Second pass (after the second play-test)
+- **Colour and planting:** the ground is meadow, forest floor, dead wood round the darklings, bare earth in the
+  town and quarry, dirt roads, sand round the lake, layered rock, and snow on the rim. Giant conifers (60 to
+  120 m) grow thick toward the rim and in a belt north of the town, with small conifers and rocks between; the
+  clearings, roads, mesa, ruins hilltop, lake and cave mouths are kept clear. Trunks are solid. G turns the
+  grey-box contour lines and 100 m grid back on.
+- **No way out into the void:** caves are now cut off just below the ground wherever they are not at a mouth (they
+  used to be able to poke up through it), and the terrain has an invisible wall down from every edge that meets
+  a cave-built square. A scan of 25,000 rays over the region finds no gap.
+- **Shores you can climb out of:** the lake bowl is a gentle parabola, and the pool in the village is a round
+  bowl with a beach instead of a straight-sided well.
+- **Change form at any pillar, in any form:** Right Mouse near a pillar while inside a body opens the wheel; picking
+  another form leaves the old body (it goes away) and enters the new one.
 
 ## On screen
 - Place names are flat screen text (`PlaceTags`), so fog and the wisp's colours never wash them out. Names for
