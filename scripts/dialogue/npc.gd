@@ -11,7 +11,6 @@ var species := "Human"
 var display_name := ""
 
 var _model: BodyModel
-var _turn_target := 0.0
 
 
 func _ready() -> void:
@@ -39,16 +38,6 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	var camera := get_viewport().get_camera_3d()
-	var watching := false
-	if camera:
-		var to := camera.global_position - global_position
-		to.y = 0.0
-		if to.length() < talk_range * 2.5:
-			_turn_target = atan2(-to.x, -to.z)
-			watching = true
-	if watching:
-		rotation.y = lerp_angle(rotation.y, _turn_target, 1.0 - exp(-4.0 * delta))
 	if _model:
 		_model.animate(0.0, false, true, delta)
 		_model.update_serpent_tail(delta, 0.0, global_position.y, true, true)

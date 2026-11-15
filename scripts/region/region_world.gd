@@ -333,6 +333,7 @@ func _build_places() -> void:
 	# The people of the town. (They stand just in front of their stalls and doors.)
 	_npc("crier", Vector2(-6.0, 20.0))
 	_npc("scholar", Vector2(-36.0, -12.0))
+	_npc("blacksmith", Vector2(22.0, 19.0))
 	_npc("meat_stand", Vector2(24.0, 43.0))
 	_npc("visitor", Vector2(50.0, 40.0))
 	_npc("cartographer", Vector2(46.0, 18.0))

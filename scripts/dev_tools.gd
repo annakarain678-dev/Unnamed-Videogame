@@ -116,11 +116,14 @@ func _menu_later(page: String, seconds: float) -> void:
 
 func _talk_later(npc_id: String, seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
+	var only_go := npc_id.begins_with("near:")
+	npc_id = npc_id.trim_prefix("near:")
 	var controller := get_tree().get_first_node_in_group("player_controller") as PlayerController
 	for node in get_tree().get_nodes_in_group("npcs"):
 		if (node as Npc).npc_id == npc_id and controller and controller.current_body:
 			controller.current_body.global_position = node.global_position + Vector3(0.0, 0.3, 2.6)
-			controller._start_talk(node)
+			if not only_go:
+				controller._start_talk(node)
 
 
 func _hold_later(action: String, seconds: float) -> void:

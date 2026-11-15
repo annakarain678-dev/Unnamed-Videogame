@@ -240,6 +240,8 @@ func _process(delta: float) -> void:
 			_prompt.text = "Your wings are still drying"
 		elif current_body.can_fly and not current_body.is_flying and not current_body.is_on_floor():
 			_prompt.text = "Space  ·  Spread your wings and fly"
+		elif _nearest_npc() != null:
+			_prompt.text = "%s  ·  Talk to %s        %s  ·  Leave the body" % [_key_name("interact"), _nearest_npc().display_name, key]
 		elif _nearest_pillar() != null:
 			_prompt.text = "Right Mouse  ·  Change form"
 		elif current_body.nearby_boulder() and not current_body.is_busy():
@@ -250,6 +252,8 @@ func _process(delta: float) -> void:
 		var statue := _nearest_statue()
 		if _wheel.is_open:
 			_prompt.text = ""
+		elif statue == null and _nearest_npc() != null:
+			_prompt.text = "%s needs a body to talk  ·  Take a form" % _nearest_npc().display_name
 		elif statue == null and _nearest_pillar() != null:
 			_prompt.text = "Right Mouse  ·  Change form"
 		elif statue == null:

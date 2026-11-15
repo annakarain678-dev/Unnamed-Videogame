@@ -152,6 +152,18 @@ const TREES := {
 		},
 	},
 
+	"blacksmith": {
+		"name": "Blacksmith", "species": "Human",
+		"note": "Forges weapons and tools. Will upgrade yours, once there is something to upgrade.",
+		"start": [["", "hello"]],
+		"nodes": {
+			"hello": {
+				"text": "Steel, iron, a fair price. Come back when you've something worth sharpening. I hear the Tar'ye at the meat stand pays well for a good duel.",
+				"choices": [{"text": "I'll be back.", "effects": ["flag:smith_met"]}],
+			},
+		},
+	},
+
 	"cartographer": {
 		"name": "Fayran Cartographer", "species": "Fayran",
 		"note": "Draws the land from above. Loves a good landmark.",
