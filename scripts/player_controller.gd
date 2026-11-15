@@ -27,6 +27,7 @@ var last_save_text := ""
 var _wheel: FormWheel
 var _wheel_pillar: FormPillar
 var _frozen_body: FormBody
+var _talking_body: FormBody
 var _prompt: Label
 var _energy: ProgressBar
 var _breath: ProgressBar
@@ -66,7 +67,22 @@ func is_wheel_open() -> bool:
 	return _wheel != null and _wheel.is_open
 
 
+## True while a conversation is open.
+func is_talking() -> bool:
+	var box := get_tree().get_first_node_in_group("dialogue_box") as DialogueBox
+	return box != null and box.is_open
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("interact") and not in_heart and not _wheel.is_open and not is_talking():
+		var npc := _nearest_npc()
+		if npc and current_body:
+			_start_talk(npc)
+			get_viewport().set_input_as_handled()
+			return
+		elif npc:
+			_notice("You are only a wisp. Take a form to speak to %s." % npc.display_name)
+			return
 	# As the wisp, Right Mouse beside a form pillar opens its wheel of forms.
 	if event.is_action_pressed("draw") and not in_heart and not _wheel.is_open:
 		var pillar := _nearest_pillar()
@@ -133,6 +149,38 @@ func _nearest_pillar() -> FormPillar:
 	return nearest
 
 
+func _nearest_npc() -> Npc:
+	var nearest: Npc = null
+	var here := current_body.global_position if current_body else _wisp.global_position
+	var best := 1.0e9
+	for node in get_tree().get_nodes_in_group("npcs"):
+		var npc := node as Npc
+		var d := here.distance_to(npc.global_position + Vector3.UP * 1.0)
+		if d < npc.talk_range and d < best:
+			nearest = npc
+			best = d
+	return nearest
+
+
+func _start_talk(npc: Npc) -> void:
+	var box := get_tree().get_first_node_in_group("dialogue_box") as DialogueBox
+	if box == null:
+		return
+	# Hold the body still while talking.
+	_talking_body = current_body
+	_talking_body.velocity = Vector3.ZERO
+	_talking_body.set_physics_process(false)
+	if not box.closed.is_connected(_on_talk_closed):
+		box.closed.connect(_on_talk_closed)
+	box.start(npc.npc_id, current_body.species)
+
+
+func _on_talk_closed() -> void:
+	if _talking_body and is_instance_valid(_talking_body):
+		_talking_body.set_physics_process(true)
+	_talking_body = null
+
+
 func _open_wheel(pillar: FormPillar) -> void:
 	_wheel_pillar = pillar
 	# Touching a pillar autosaves.
@@ -175,7 +223,9 @@ func _notice(text: String) -> void:
 func _process(delta: float) -> void:
 	var key := _key_name("toggle_body")
 	_notice_left = maxf(0.0, _notice_left - delta)
-	if _notice_left > 0.0:
+	if is_talking():
+		_prompt.text = ""
+	elif _notice_left > 0.0:
 		_prompt.text = _notice_text
 	elif in_heart:
 		_prompt.text = ""  # The heart chase shows its own instructions.

@@ -14,6 +14,9 @@ extends Node
 ##   --release=move_forward@5        let go of a held control at this time
 ##   --print-body-height=10          print the controlled body's height each second
 ##   --zoom=2.5                      camera distance behind the wisp (default 6)
+##   --enter=Human@12                become that form at the nearest pillar after this many seconds
+##   --menu=journal@3               open the pause menu on a page at that time
+##   --talk=crier@14                 open this person's conversation at that time (needs a body)
 ##   --day                           (forest) see the world in daylight as the wisp
 
 var _screenshot_path := ""
@@ -81,9 +84,43 @@ func _apply_setup(options: Dictionary) -> void:
 	if options.has("print-body-height"):
 		_print_body_height_later(float(options["print-body-height"]))
 
+	if options.has("enter"):
+		_enter_later(options["enter"].get_slice("@", 0), float(options["enter"].get_slice("@", 1)) if "@" in options["enter"] else 0.0)
+
+	if options.has("menu"):
+		_menu_later(options["menu"].get_slice("@", 0), float(options["menu"].get_slice("@", 1)) if "@" in options["menu"] else 0.0)
+
+	if options.has("talk"):
+		_talk_later(options["talk"].get_slice("@", 0), float(options["talk"].get_slice("@", 1)) if "@" in options["talk"] else 0.0)
+
 	if options.has("press"):
 		for entry: String in options["press"].split(","):
 			_tap_later(entry.get_slice("@", 0), float(entry.get_slice("@", 1)) if "@" in entry else 0.0)
+
+
+func _enter_later(species: String, seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+	var controller := get_tree().get_first_node_in_group("player_controller") as PlayerController
+	var pillar := get_tree().get_first_node_in_group("form_pillars") as FormPillar
+	if controller and pillar:
+		controller.enter_body(pillar.spawn_form(species))
+
+
+func _menu_later(page: String, seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+	var menu := get_tree().current_scene.find_child("PauseMenu", true, false) as PauseMenu
+	if menu:
+		menu.open()
+		menu._show_page(page)
+
+
+func _talk_later(npc_id: String, seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+	var controller := get_tree().get_first_node_in_group("player_controller") as PlayerController
+	for node in get_tree().get_nodes_in_group("npcs"):
+		if (node as Npc).npc_id == npc_id and controller and controller.current_body:
+			controller.current_body.global_position = node.global_position + Vector3(0.0, 0.3, 2.6)
+			controller._start_talk(node)
 
 
 func _hold_later(action: String, seconds: float) -> void:

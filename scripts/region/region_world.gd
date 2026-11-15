@@ -330,6 +330,12 @@ func _build_places() -> void:
 	_building("Duel ground (Tar'ye)", Vector2(75.0, 62.0), Vector3(14.0, 0.3, 14.0))
 	_building("Town Crier\n(lost child)", Vector2(-6.0, 24.0), Vector3(3.0, 3.0, 3.0))
 	_small("Form pillar", Vector3(-18.0, base + 5.0, 52.0), 150.0)
+	# The people of the town. (They stand just in front of their stalls and doors.)
+	_npc("crier", Vector2(-6.0, 20.0))
+	_npc("scholar", Vector2(-36.0, -12.0))
+	_npc("meat_stand", Vector2(24.0, 43.0))
+	_npc("visitor", Vector2(50.0, 40.0))
+	_npc("cartographer", Vector2(46.0, 18.0))
 
 	# --- North: the forest, the flower mesa, the fork. ---
 	_tag("Forest", Vector3(-10.0, base + 14.0, -250.0), 600.0)
@@ -342,7 +348,7 @@ func _build_places() -> void:
 		flower.get_child(0).material_override = _marker_material
 	var fork := RegionTerrain.FORK
 	_box(Vector3(fork.x, RegionTerrain.height(fork.x, fork.y) + 1.6, fork.y), Vector3(0.6, 3.2, 0.6), false)
-	_tag("Road fork\nFootprints", Vector3(fork.x, base + 7.0, fork.y), 700.0)
+	_small("Road fork\nFootprints", Vector3(fork.x, base + 7.0, fork.y), 700.0)
 
 	# --- The darklings' clearing: a wide ring of stones, and a save point in the trees nearby. ---
 	var darkling := RegionTerrain.DARKLING
@@ -399,6 +405,7 @@ func _build_places() -> void:
 	# --- The Qoi-Kash village, in the cavern under the hollow hill; the Black far below. ---
 	var hill_top := RegionTerrain.height(village.x, village.y)
 	_tag("Qoi-Kash Village\n(in the cavern below)", Vector3(village.x, hill_top + 12.0, village.y), 0.0, false, true)
+	_places.append(["Qoi-Kash Village", Vector3(village.x, village_floor, village.y)])
 	_pillar(village + Vector2(-15.0, 10.0), village_floor, RegionCaves.pool)
 	for house in [Vector2(20.0, -20.0), Vector2(45.0, 5.0), Vector2(15.0, 30.0), Vector2(50.0, -20.0), Vector2(-25.0, 30.0)]:
 		_box(Vector3(village.x + house.x, village_floor + 2.5, village.y + house.y), Vector3(8.0, 5.0, 8.0), true)
@@ -410,6 +417,13 @@ func _build_places() -> void:
 	pit_disc.get_child(0).material_override = _dark_material
 	_tag("The Black (pit)", Vector3(pit.x, pit.y + 6.0, pit.z), 200.0, true)
 	_tag("Mural of the King", Vector3(pit.x + 20.0, pit.y + 6.0, pit.z), 200.0, true)
+
+
+func _npc(npc_id: String, at: Vector2) -> void:
+	var npc := Npc.new()
+	npc.npc_id = npc_id
+	npc.position = Vector3(at.x, RegionTerrain.height(at.x, at.y), at.y)
+	add_child(npc)
 
 
 func _pillar(at: Vector2, ground: float, facing: Vector2) -> FormPillar:
@@ -567,6 +581,12 @@ func _build_menu() -> void:
 		_help.visible = on
 	add_child(menu)
 	_player.saved.connect(menu.toast)
+	# The conversation box goes in after the menu, so it sees the keys first.
+	var dialogue := DialogueBox.new()
+	dialogue.name = "DialogueBox"
+	dialogue.add_to_group("dialogue_box")
+	add_child(dialogue)
+	GameState.notice.connect(menu.toast)
 
 
 func _build_hud() -> void:
@@ -600,6 +620,9 @@ func _update_hud() -> void:
 		_loading.text = ""
 	var p := _wisp.global_position
 	var ground := RegionTerrain.height(p.x, p.z)
+	for place in _places:
+		if not (place[0] as String).begins_with("Form pillar") and p.distance_to(place[1]) < 70.0:
+			GameState.find_place(place[0])
 	var nearest := ""
 	var nearest_distance := 1.0e9
 	for place in _places:

@@ -54,3 +54,7 @@ The old test island is still in `scenes/main.tscn`. To play it, set it as the ma
 - A highlight travels round the wheel: move the mouse right or left, scroll, or press A / D (or Q / E). **Left Click** picks a form; **Right Click** closes it.
 - The pillar is also your **save point**. If a body drowns or crashes, it is gone for good and the wisp wakes at the last pillar it used.
 - A small **lake** in the main clearing is for trying out swimming (Human, Tar'ye, Sen-Kash, Qoi-Kash; a Fayran can't swim).
+
+## Characters, dialogue and the journal
+
+Talk to people with E while in a body (not as the wisp). Stats, learned facts, people and places are tracked in `GameState` and shown in the pause menu journal. See [docs/character-system.md](docs/character-system.md).

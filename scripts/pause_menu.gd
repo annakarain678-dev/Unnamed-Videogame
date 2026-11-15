@@ -48,7 +48,7 @@ func _input(event: InputEvent) -> void:
 	# The form wheel (and anything else that handled Esc first) gets to close itself first.
 	if get_viewport().is_input_handled():
 		return
-	if player and player.is_wheel_open():
+	if player and (player.is_wheel_open() or player.is_talking()):
 		return
 	get_viewport().set_input_as_handled()
 	if not is_open:
@@ -247,26 +247,22 @@ func _build_journal() -> void:
 	_title("Journal")
 	var tabs := HBoxContainer.new()
 	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
-	tabs.add_theme_constant_override("separation", 6)
+	tabs.add_theme_constant_override("separation", 4)
 	_content.add_child(tabs)
-	var body := _label("", 20, Color(CREAM, 0.8))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var body := _label("", 19, Color(CREAM, 0.85))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var notes := {
-		"Memories": "Nothing recorded yet.\n\nWhat the people you meet remember will be written here.",
-		"People": "Nobody has been met yet.",
-		"Places": "No places have been found yet.",
-		"Rumours": "No rumours yet.\n\nClues that point from one place to another will be linked here.",
-	}
-	for tab_name in notes:
-		var tab := _button(tab_name, func() -> void: body.text = notes[tab_name])
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(body)
+	for tab_name in ["Standing", "Memories", "People", "Places", "Rumours"]:
+		var tab := _button(tab_name, func() -> void: body.text = _journal_text(tab_name))
 		tab.add_theme_font_size_override("font_size", 19)
 		tab.custom_minimum_size = Vector2(0, 34)
 		tabs.add_child(tab)
-	body.text = notes["Memories"]
-	_content.add_child(body)
+	body.text = _journal_text("Standing")
+	_content.add_child(scroll)
 	# The five marks, as a row of decoration at the foot of the page.
 	var marks := HBoxContainer.new()
 	marks.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -281,6 +277,53 @@ func _build_journal() -> void:
 		marks.add_child(mark)
 	_content.add_child(marks)
 	_content.add_child(_button("Back", func() -> void: _show_page("main")))
+
+
+## The words for one journal tab, read from GameState.
+func _journal_text(tab: String) -> String:
+	var lines: PackedStringArray = []
+	match tab:
+		"Standing":
+			lines.append("Fame:  %d      (how well the towns know your name)" % GameState.stat("fame"))
+			lines.append("The king's awareness:  %d" % GameState.stat("awareness"))
+			lines.append("")
+			lines.append("The Way")
+			lines.append("Valor:  %d      Wisdom:  %d      Guile:  %d" % [GameState.stat("valor"), GameState.stat("wisdom"), GameState.stat("guile")])
+			lines.append("")
+			lines.append("Pretending not to know what the journal says you know is a lie, and costs Valor.")
+		"Memories":
+			if GameState.facts.is_empty():
+				return "Nothing recorded yet.\n\nWhat the people you meet tell you will be written here."
+			for fact in GameState.facts:
+				lines.append("\u2022 " + String(Lore.FACTS.get(fact, {}).get("text", fact)))
+				lines.append("")
+		"People":
+			if GameState.people.is_empty():
+				return "Nobody has been met yet."
+			for id in GameState.people:
+				var person: Dictionary = GameState.people[id]
+				lines.append("%s  (%s)" % [person["name"], person["species"]])
+				lines.append(person["note"])
+				lines.append("")
+		"Places":
+			if GameState.places.is_empty():
+				return "No places have been found yet."
+			for place_name in GameState.places:
+				lines.append("\u2022 " + String(place_name))
+		"Rumours":
+			var any := false
+			for fact in GameState.facts:
+				var info: Dictionary = Lore.FACTS.get(fact, {})
+				if info.get("to", "") == "":
+					continue
+				any = true
+				var seen := " (found)" if GameState.places.has(info["to"]) else ""
+				lines.append("%s  \u2192  %s%s" % [info["from"], info["to"], seen])
+				lines.append(String(info["text"]))
+				lines.append("")
+			if not any:
+				return "No rumours yet.\n\nClues that point from one place to another will be linked here."
+	return "\n".join(lines)
 
 
 # --- Small pieces ---------------------------------------------------------------
